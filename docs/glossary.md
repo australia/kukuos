@@ -39,7 +39,7 @@ compiled binaries.
 ## Rebuild the compiler itself from source
 
 ```
-./kuku-bama/ngunnga --linux kuku-bama/ngunnga kuku-bama/ngunnga.kuku
+./kuku-bama/ngunnga --bama kuku-bama/ngunnga kuku-bama/ngunnga.kuku
 ```
 
 The fixed point is reached on the first pass: the binary produced by this command

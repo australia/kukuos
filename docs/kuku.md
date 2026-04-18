@@ -150,7 +150,7 @@ buffer space.
 
 ## Linux-ABI primitives (for host tools)
 
-When compiled with `--linux`, Kuku emits a Linux x86 ELF that can run as a
+When compiled with `--bama`, Kuku emits a Linux x86 ELF that can run as a
 normal process.  The following primitives become available:
 
 | Kuku              | Meaning / syscall (eax)                                  |
