@@ -150,6 +150,63 @@ wararra-bss NAME 262144               # zero-filled BSS block
 
 ---
 
+## Reading and writing files
+
+Kuku programs can be compiled for Linux (flag `--linux`) instead of as a
+bare-metal kernel.  In that mode you get the Linux x86 syscall ABI, which
+gives you file I/O via four words:
+
+| Word              | Signature                   | Syscall     |
+|-------------------|-----------------------------|-------------|
+| `bama-ngunnga`    | `( path flags -- fd )`      | `open(2)`   |
+| `bama-balkal`     | `( fd buf n -- written )`   | `write(2)`  |
+| `bama-babaji`     | `( fd buf n -- read )`      | `read(2)`   |
+| `bama-nandal`     | `( fd -- ret )`             | `close(2)`  |
+
+The entry-point word of a `--linux` program is `jakalbaku-warri`.
+
+A minimal round-trip — write bytes to a file, read them back, print them —
+lives at [`examples/nganjal.kuku`](examples/nganjal.kuku):
+
+```kuku
+wararra wararra-path      "/tmp/kaday.txt" 0  nandal
+wararra wararra-message   "kaday, bama! from kuku.\n" 0  nandal
+wararra wararra-message-n   24  nandal
+wararra wararra-n  0 0 0 0  nandal
+wararra-bss wararra-buf  256
+
+balkalaway jakalbaku-warri
+    # WRITE: open(path, O_WRONLY|O_CREAT|O_TRUNC), write, close
+    wararra-path 0x241 bama-ngunnga
+    kujil wararra-message wararra-message-n @ bama-balkal wuljil
+    bama-nandal wuljil
+
+    # READ: open(path, O_RDONLY), read, close, echo to stdout
+    wararra-path 0 bama-ngunnga
+    kujil wararra-buf 256 bama-babaji
+    wararra-n !
+    bama-nandal wuljil
+    1 wararra-buf wararra-n @ bama-balkal wuljil
+kunbayn
+```
+
+Build and run it:
+
+```
+$ ./kuku-bama/ngunnga --linux nganjal examples/nganjal.kuku
+$ ./nganjal
+kaday, bama! from kuku.
+
+$ xxd /tmp/kaday.txt
+00000000: 6b61 6461 792c 2062 616d 6121 2066 726f  kaday, bama! fro
+00000010: 6d20 6b75 6b75 2e0a                      m kuku..
+```
+
+The same program is what the Kuku compiler itself uses internally to read
+`.kuku` source files and write out ELF kernels — just on a much larger
+scale.  Note that the bare-metal kernel (the one you boot over SSH) does
+**not** yet have a filesystem; that's a separate project after SSH-in-Kuku.
+
 ## Best practices
 
 - **Every identifier you introduce must appear in `docs/dictionary.yaml`.**
