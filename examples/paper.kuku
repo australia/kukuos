@@ -1,0 +1,252 @@
+# paper.kuku  --  emits a LaTeX paper about dambun, then you run pdflatex on it.
+#
+#   ./kuku-bama/ngunnga --bama /tmp/paper examples/paper.kuku
+#   /tmp/paper > /tmp/dambun-paper.tex     # or use the in-program open
+#   pdflatex /tmp/dambun-paper.tex
+#
+# The document is a single concatenated byte string.  Backslashes for LaTeX
+# commands are emitted as "\\" (escape -> single 0x5C).  Line breaks inside
+# the source are emitted as "\n" so the resulting .tex is readable.
+
+wararra wararra-out-path "/tmp/dambun-paper.tex" 0 nandal
+wararra-bss wararra-paper-fd   4
+
+# ============================================================================
+# The paper as one long null-terminated concatenated string.
+# Each string literal is a chunk of at most ~400 bytes so we stay under the
+# compiler's 512-byte token buffer.
+# ============================================================================
+
+wararra wararra-paper
+
+"\\documentclass[11pt]{article}\n"
+"\\usepackage[margin=1in]{geometry}\n"
+"\\usepackage{amsmath}\n"
+"\\usepackage{hyperref}\n"
+"\\usepackage{parskip}\n"
+"\\title{\\texttt{dambun}: a character-level GPT in Kuku Yalanji}\n"
+"\\author{Thomas Davis \\\\\\texttt{github.com/australia/kukuos}}\n"
+"\\date{April 2026}\n"
+"\\begin{document}\n"
+"\\maketitle\n"
+"\n"
+
+"\\begin{abstract}\n"
+"We implement a 1-layer character-level Transformer language model --- "
+"Value-based reverse-mode autograd, multi-head self-attention with KV cache, "
+"a ReLU MLP, cross-entropy loss, and Adam --- in approximately 1,750 lines "
+"of Kuku, a Forth-style concatenative language whose keywords are drawn from "
+"Kuku Yalanji, an Aboriginal language of Far North Queensland. The compiler "
+"is a 24\\,kB self-hosted 32-bit Linux ELF that emits machine code directly, "
+"without invoking a linker, an assembler, or libc. The model is trained by "
+"manipulating IEEE-754 doubles through x87 FPU instructions emitted as raw "
+"opcodes. On a character-level names dataset the 4{,}192-parameter model "
+"converges from cross-entropy $\\log 27 \\approx 3.30$ to $1.01$ in "
+"100 single-example Adam steps, and generates coherently-structured if "
+"semantically empty outputs under temperature sampling. We describe the "
+"design, the six substantive bugs that surfaced during the port, and what "
+"it is like to write numerical code in a language one cannot speak.\n"
+"\\end{abstract}\n"
+"\n"
+
+"\\section{Introduction}\n"
+"Kuku Yalanji is spoken by roughly 300 people in the rainforest north of "
+"Cairns, Queensland. It is not, to our knowledge, previously represented in "
+"the vocabulary of any production programming language. This paper describes "
+"\\texttt{dambun}, a port of Karpathy's \\textsc{microGPT} to \\emph{kuku}, a "
+"small stack language whose primitives --- \\texttt{kujil} (dup), "
+"\\texttt{wuljil} (drop), \\texttt{wundil} (swap), \\texttt{muru} (add), "
+"\\texttt{dumbarril} (subtract), \\texttt{yala}/\\texttt{yinya} (if/else), "
+"\\texttt{yabarrka}/\\texttt{janay} (loop/break), \\texttt{balkalaway} "
+"(function definition, lit. ``let us speak together'') --- are Kuku Yalanji "
+"words chosen for semantic rather than mnemonic fit.\n"
+"\n"
+"We show that the usual machinery of modern deep learning --- "
+"double-precision arithmetic, reverse-mode differentiation, a Transformer "
+"forward and backward pass, the Adam optimiser, and temperature-scaled "
+"multinomial sampling --- compiles to a single 32\\,kB statically-linked "
+"ELF with no dependencies beyond \\texttt{int 0x80} and \\texttt{/dev/urandom}.\n"
+"\n"
+
+"\\section{The Kuku language}\n"
+"Kuku is a concatenative language: tokens manipulate an integer data stack "
+"(at \\texttt{[ebp]}) and the x87 FPU stack, and compile one-to-one to "
+"short bursts of x86 machine code. There are no variables in the usual sense; "
+"globals are named BSS or rodata slots accessed via postfix \\texttt{@} and "
+"\\texttt{!}. A primitive like \\texttt{muru} (integer add) is two bytes "
+"(\\texttt{add eax, [ebp+4]; add ebp, 4; mov [ebp], eax} -- $12$ bytes total). "
+"A user-defined word like \\texttt{kuku-muru} (the autograd add) is a "
+"\\texttt{balkalaway \\dots{} kunbayn} block that the compiler turns into a "
+"\\texttt{call} site plus a function body emitted once.\n"
+"\n"
+"The compiler, \\texttt{ngunnga} (``to make''), is a single 1{,}400-line "
+"source file that implements a recursive-descent parser over Kuku tokens, a "
+"prescan-plus-emit two-pass ELF generator, a symbol table keyed by "
+"null-terminated names, and a primitive table keyed by exact-match strings. "
+"It is self-hosting: the compiler binary is the fixed-point of "
+"\\texttt{ngunnga.kuku} compiled by itself.\n"
+"\n"
+
+"\\section{Architecture of \\texttt{dambun}}\n"
+"The model matches \\textsc{microGPT} exactly: a vocabulary of 26 letters "
+"plus \\textsc{bos}, an embedding dimension of $16$, a single Transformer "
+"block with $4$ attention heads (head dimension $4$), a block size of $16$, "
+"an MLP hidden size of $64$, and a language-modelling head tied to nothing. "
+"The block is pre-RMSnorm $\\to$ multi-head self-attention with a KV cache "
+"$\\to$ residual $\\to$ pre-RMSnorm $\\to$ $64$-hidden ReLU MLP $\\to$ residual. "
+"Total parameter count, in 48-byte \\texttt{Value} cells, is $4{,}192$.\n"
+"\n"
+"The \\texttt{Value} cell is the unit of the autograd graph:\n"
+"\\begin{quote}\n"
+"\\texttt{\\{data\\,(f64),\\ grad\\,(f64),\\ op\\_type\\,(u32),\\ child1\\,(ptr),\\ "
+"child2\\,(ptr),\\ local\\_grad1\\,(f64),\\ local\\_grad2\\,(f64),\\ visited\\,(u32)\\}}.\n"
+"\\end{quote}\n"
+"Each arithmetic primitive (\\texttt{kuku-muru}, \\texttt{kuku-jirray}, "
+"\\texttt{kuku-mulkurr} for $\\log$, \\texttt{kuku-baya} for $\\exp$, "
+"\\texttt{kuku-wandil} for ReLU, etc.) bump-allocates a new cell, copies "
+"the two operands' addresses into \\texttt{child1/child2}, computes the "
+"local partials at the forward \\texttt{.data} values, and stores them in "
+"\\texttt{local\\_grad1/2}. Backward is a straightforward topological sort "
+"followed by a reverse-order scan that accumulates "
+"$\\text{child.grad} \\mathrel{+}= \\text{local\\_grad} \\cdot \\text{self.grad}$.\n"
+"\n"
+"Floating-point is strictly x87. There is no SSE path and no calls out to "
+"\\texttt{libm}: \\texttt{bana-muru} is \\texttt{FADDP} (two bytes), "
+"\\texttt{bana-sqrt} is \\texttt{FSQRT}, \\texttt{bana-sin}/\\texttt{cos} "
+"are \\texttt{FSIN}/\\texttt{FCOS}, and \\texttt{bana-exp} is a "
+"32-byte inline sequence of \\texttt{FLDL2E}, \\texttt{FMULP}, \\texttt{FPREM}, "
+"\\texttt{F2XM1}, \\texttt{FSCALE} that computes $e^x = 2^{x\\log_2 e}$.\n"
+"\n"
+
+"\\section{Bugs}\n"
+"Porting a model written in a Python tutorial to a stack language with no "
+"types, no bounds-checks, and globals-instead-of-locals surfaced exactly "
+"the class of bugs one would expect. We collect the six with genuine "
+"diagnostic value here.\n"
+"\n"
+"\\paragraph{(1) Float comparison primitives sized wrong.} "
+"\\texttt{bana-junkay}, \\texttt{bana-jirray}, \\texttt{bana-buban} (floating "
+"equality, $>$, $<$) were declared to emit 14 bytes but their machine code "
+"was actually 16 bytes; the last two instructions (\\texttt{sub ebp, 4}; "
+"\\texttt{mov [ebp], eax}) silently vanished, corrupting the data stack. "
+"Programs appeared to work until they didn't.\n"
+"\n"
+"\\paragraph{(2) A three-argument word compiled to a four-argument call.} "
+"Helpers like \\texttt{bayan-wte} computed \\texttt{wte[tok][i]} via "
+"\\texttt{16 wundil w-off-wte @ wundil wundil bayan-jina}. Three swaps are "
+"one effective swap, not a rotate. \\texttt{bayan-jina} received "
+"\\texttt{(tok, 16, embd, wte\\_off)} instead of "
+"\\texttt{(wte\\_off, tok, 16, embd)} and computed an address by adding "
+"garbage. Refactored into explicit temporaries.\n"
+"\n"
+"\\paragraph{(3) Adam inverted the update division.} The canonical step "
+"$\\theta \\leftarrow \\theta - \\eta\\,\\hat{m}/(\\sqrt{\\hat{v}}+\\varepsilon)$ "
+"was written as \\texttt{\\dots{} bana-wundil bana-/}. The \\texttt{bana-wundil} "
+"(FPU swap-top-2) was left over from an earlier draft and inverted the "
+"operand order, producing $\\text{denom}/\\hat{m}$ instead of "
+"$\\hat{m}/\\text{denom}$. With zero gradients the result was \\texttt{0/eps}, "
+"which is fine; with nonzero gradients it was $O(1/\\hat{m})$, which is not. "
+"Parameters went to $\\pm\\mathrm{NaN}$ after one step.\n"
+"\n"
+"\\paragraph{(4) Topological sort clobbered its own children across recursion.} "
+"\\texttt{kuku-jilba} cached the left and right child pointers of the current "
+"node into two BSS globals, then recursed. The recursive call did the same "
+"thing, overwriting the caller's cached pointers before the caller could "
+"read the right child. The sort reached 7 of 30{,}000+ nodes and most "
+"parameters were never touched by backward. Fixed by keeping the children "
+"on the data stack across the recursion.\n"
+"\n"
+"\\paragraph{(5) Softmax named after a CPU instruction.} The softmax "
+"function was named \\texttt{jalngka} (``the lights'' in Kuku Yalanji), "
+"which happens to be a built-in compiler primitive for the x86 "
+"\\texttt{PAUSE} instruction (\\texttt{F3 90}). Every call site silently "
+"compiled to two-byte no-ops and the user-defined softmax was never "
+"invoked. Probabilities were uninitialised scratch bytes from other "
+"computations, which cross-entropy then took the logarithm of. Renamed to "
+"\\texttt{balkal-jurra}.\n"
+"\n"
+"\\paragraph{(6) Temperature-sampling walk was not cumulative.} "
+"Multinomial sampling via inverse-CDF walks "
+"$j^\\star = \\min\\{j : r - \\sum_{k \\le j} w_k < 0\\}$. The loop body "
+"read \\texttt{bana-kujil w[j] bana-dumbarril 0 bana-buban}, which "
+"duplicated $r$, subtracted the current weight, compared against zero, "
+"and then dropped the difference. So $r$ never decreased; the sampler "
+"chose the first $j$ with $w_j > r$, i.e. effectively argmax.\n"
+"\n"
+
+"\\section{Results}\n"
+"On the standard 32{,}032-entry US first-names corpus, training 100 Adam "
+"steps at $\\eta = 10^{-3}$ takes $\\approx 0.8$\\,s of wall-clock on a "
+"single x86 core. Cross-entropy drops from $\\log 27 \\approx 3.296$ at "
+"step $0$ to $1.01$ at step $90$. At $\\eta = 10^{-2}$ the single-example "
+"Adam update is large enough that per-step loss collapses to zero, which "
+"saturates the output softmax and degrades sampling to argmax. Under the "
+"tuned configuration, sampling at temperature $1$ produces "
+"character sequences with the bigram statistics of the training corpus, "
+"as expected for a model of this capacity.\n"
+"\n"
+"The full pipeline --- RNG seeded from \\texttt{/dev/urandom}, Gaussian "
+"initialisation by Box--Muller, forward pass, reverse-mode autograd, Adam "
+"update, parameter serialisation to disk, and autoregressive sampling --- "
+"runs in a 32{,}250-byte statically-linked ELF. There are no runtime "
+"dependencies.\n"
+"\n"
+
+"\\section{Related work and acknowledgements}\n"
+"This work follows Karpathy's \\textsc{minGPT} / \\textsc{microGPT}, whose "
+"transparent Python reference implementations are the reason a port of "
+"this size is tractable at all. Kuku Yalanji vocabulary is drawn from the "
+"open lexical resources of the Kuku Yalanji dictionary maintained by "
+"community speakers; semantic choices (e.g.\\ \\texttt{dukurr}, ``to grind'', "
+"for the optimiser; \\texttt{wumba}, ``to dream'', for the RNG) were made "
+"by the author and are not attested as technical terms.\n"
+"\n"
+"\\section{Availability}\n"
+"Source, compiler, trained weights, and a reproducible build script are "
+"on the HuggingFace Hub and at "
+"\\url{https://github.com/australia/kukuos}.\n"
+"\n"
+
+"\\end{document}\n"
+0 nandal
+
+
+# ============================================================================
+# Minimal helpers (strlen + write-all).
+# ============================================================================
+
+balkalaway paper-dukul
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+balkalaway paper-balkal
+    # (fd ptr --)
+    kujil paper-dukul bama-balkal wuljil
+kunbayn
+
+
+# ============================================================================
+# Main.  Open the output file, write the paper, close.
+# ============================================================================
+
+balkalaway jakalbaku-warri
+    wararra-out-path 0x241 bama-ngunnga wararra-paper-fd !
+    wararra-paper-fd @ 0 jirray kari
+    yala
+        2 "paper ngunnga kari\n" 19 bama-balkal wuljil
+        1 bama-kunbayn
+    kunbayn
+
+    wararra-paper-fd @ wararra-paper paper-balkal
+    wararra-paper-fd @ bama-nandal wuljil
+
+    2 "paper kunbayn: " 15 bama-balkal wuljil
+    2 wararra-out-path paper-balkal
+    2 "\n" 1 bama-balkal wuljil
+    0 bama-kunbayn
+kunbayn
