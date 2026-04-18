@@ -9,17 +9,15 @@
 
 wararra wararra-banner
     "\n"
-    "    ===============================================\n"
-    "      Yalanji -- an OS in Kuku Yalanji\n"
-    "    ===============================================\n"
+    "    kaday, bama.\n"
     "\n"
-    "    kuku: kaday  binal  jalngka  kunbayn\n"
-    "    kuku: yirrkay  balkal  yanyil  dukul    (/srv/box)\n"
+    "    kuku: kaday   binal   jalngka   kunbayn\n"
+    "    kuku: yirrkay balkal  yanyil    dukul\n"
     "\n"
     0
 nandal
 
-wararra wararra-greet "kaday, bama! yala Yalanji.\n" 0 nandal
+wararra wararra-greet "\n" 0 nandal
 wararra wararra-help  "kuku: kaday, binal, jalngka, kunbayn, yirrkay, balkal, yanyil, dukul.\n\n" 0 nandal
 wararra wararra-prompt "yalanji> " 0 nandal
 
