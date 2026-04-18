@@ -96,6 +96,86 @@ balkalaway fe-sub
 kunbayn
 
 
+wararra-bss wararra-fe-t 64
+wararra-bss wararra-fe-hh 32
+wararra wararra-fe-j        0 0 0 0 nandal
+wararra wararra-fe-hitmp    0 0 0 0 nandal
+wararra wararra-fe-t8       0 0 0 0 nandal
+
+
+balkalaway fe-t-clear
+    0 wararra-fe-i !
+    yabarrka
+        wararra-fe-i @ 16 junkay yala janay kunbayn
+        0 wararra-fe-t wararra-fe-i @ 4 * muru !
+        wararra-fe-i @ 1 muru wararra-fe-i !
+    kunbayn
+kunbayn
+
+
+balkalaway fe-mul
+    wararra-fe-b !
+    wararra-fe-a !
+    wararra-fe-c !
+
+    fe-t-clear
+
+    0 wararra-fe-i !
+    yabarrka
+        wararra-fe-i @ 8 junkay yala janay kunbayn
+        0 wararra-fe-j !
+        yabarrka
+            wararra-fe-j @ 8 junkay yala janay kunbayn
+            wararra-fe-a @ wararra-fe-i @ 4 * muru @
+            wararra-fe-b @ wararra-fe-j @ 4 * muru @
+            jambul-*
+            wararra-fe-hitmp !
+            wararra-fe-t wararra-fe-i @ wararra-fe-j @ muru fe-addv
+            wararra-fe-hitmp @
+            wararra-fe-t wararra-fe-i @ wararra-fe-j @ muru 1 muru fe-addv
+            wararra-fe-j @ 1 muru wararra-fe-j !
+        kunbayn
+        wararra-fe-i @ 1 muru wararra-fe-i !
+    kunbayn
+
+    0 wararra-fe-i !
+    yabarrka
+        wararra-fe-i @ 8 junkay yala janay kunbayn
+        wararra-fe-t wararra-fe-i @ 8 muru 4 * muru @
+        wararra-fe-hh wararra-fe-i @ 4 * muru !
+        0 wararra-fe-t wararra-fe-i @ 8 muru 4 * muru !
+        wararra-fe-i @ 1 muru wararra-fe-i !
+    kunbayn
+
+    0 wararra-fe-i !
+    yabarrka
+        wararra-fe-i @ 8 junkay yala janay kunbayn
+        38 wararra-fe-hh wararra-fe-i @ 4 * muru @ jambul-*
+        wararra-fe-hitmp !
+        wararra-fe-t wararra-fe-i @ fe-addv
+        wararra-fe-hitmp @
+        wararra-fe-t wararra-fe-i @ 1 muru fe-addv
+        wararra-fe-i @ 1 muru wararra-fe-i !
+    kunbayn
+
+    yabarrka
+        wararra-fe-t 8 4 * muru @ wararra-fe-t8 !
+        wararra-fe-t8 @ 0 junkay yala janay kunbayn
+        0 wararra-fe-t 8 4 * muru !
+        38 wararra-fe-t8 @ *
+        wararra-fe-t 0 fe-addv
+    kunbayn
+
+    0 wararra-fe-i !
+    yabarrka
+        wararra-fe-i @ 8 junkay yala janay kunbayn
+        wararra-fe-t wararra-fe-i @ 4 * muru @
+        wararra-fe-c @ wararra-fe-i @ 4 * muru !
+        wararra-fe-i @ 1 muru wararra-fe-i !
+    kunbayn
+kunbayn
+
+
 balkalaway fe-balkal-nibble
     kujil 10 buban
     yala 0x30 muru yinya 55 muru kunbayn
@@ -154,6 +234,17 @@ wararra-bss wararra-fe-tc 32
 wararra-bss wararra-fe-td 32
 
 
+wararra wararra-fe-t2-128
+    0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00
+    0x01 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-fe-t1
+    0x01 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00
+nandal
+
+
 balkalaway jakalbaku-warri
     wararra-fe-tc wararra-fe-ta wararra-fe-tb fe-add
     wararra-fe-tc fe-balkal
@@ -165,4 +256,16 @@ balkalaway jakalbaku-warri
     wararra-fe-tc wararra-fe-tp-minus-1 wararra-fe-ta fe-add
     wararra-fe-td wararra-fe-tc wararra-fe-ta fe-sub
     wararra-fe-td fe-balkal
+
+    wararra-fe-tc wararra-fe-ta wararra-fe-tb fe-mul
+    wararra-fe-tc fe-balkal
+
+    wararra-fe-tc wararra-fe-t2-128 wararra-fe-t2-128 fe-mul
+    wararra-fe-tc fe-balkal
+
+    wararra-fe-tc wararra-fe-tp-minus-1 wararra-fe-t1 fe-mul
+    wararra-fe-tc fe-balkal
+
+    wararra-fe-tc wararra-fe-tp-minus-1 wararra-fe-tp-minus-1 fe-mul
+    wararra-fe-tc fe-balkal
 kunbayn
