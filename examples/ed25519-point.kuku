@@ -136,26 +136,91 @@ wararra-bss wararra-pt-zinv   32
 wararra-bss wararra-pt-ax     32
 wararra-bss wararra-pt-ay     32
 
+wararra wararra-pt-one
+    0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-pt-cpy-src   0 0 0 0 nandal
+wararra wararra-pt-cpy-dst   0 0 0 0 nandal
+wararra wararra-pt-cpy-i     0 0 0 0 nandal
+
+wararra wararra-pt-sm-k      0 0 0 0 nandal
+wararra wararra-pt-sm-bit    0 0 0 0 nandal
+wararra wararra-pt-sm-outX   0 0 0 0 nandal
+wararra wararra-pt-sm-outY   0 0 0 0 nandal
+wararra wararra-pt-sm-outZ   0 0 0 0 nandal
+wararra wararra-pt-sm-outT   0 0 0 0 nandal
+wararra wararra-pt-sm-bX     0 0 0 0 nandal
+wararra wararra-pt-sm-bY     0 0 0 0 nandal
+wararra wararra-pt-sm-bZ     0 0 0 0 nandal
+wararra wararra-pt-sm-bT     0 0 0 0 nandal
+
+
+balkalaway pt-copy32
+    wararra-pt-cpy-dst !
+    wararra-pt-cpy-src !
+    0 wararra-pt-cpy-i !
+    yabarrka
+        wararra-pt-cpy-i @ 8 junkay yala janay kunbayn
+        wararra-pt-cpy-src @ wararra-pt-cpy-i @ 4 * muru @
+        wararra-pt-cpy-dst @ wararra-pt-cpy-i @ 4 * muru !
+        wararra-pt-cpy-i @ 1 muru wararra-pt-cpy-i !
+    kunbayn
+kunbayn
+
+
+balkalaway pt-smul
+    wararra-pt-sm-bT !
+    wararra-pt-sm-bZ !
+    wararra-pt-sm-bY !
+    wararra-pt-sm-bX !
+    wararra-pt-sm-outT !
+    wararra-pt-sm-outZ !
+    wararra-pt-sm-outY !
+    wararra-pt-sm-outX !
+    wararra-pt-sm-k !
+
+    wararra-pt-zero wararra-pt-sm-outX @ pt-copy32
+    wararra-pt-one  wararra-pt-sm-outY @ pt-copy32
+    wararra-pt-one  wararra-pt-sm-outZ @ pt-copy32
+    wararra-pt-zero wararra-pt-sm-outT @ pt-copy32
+
+    255 wararra-pt-sm-bit !
+    yabarrka
+        wararra-pt-sm-bit @ 0 buban yala janay kunbayn
+
+        wararra-pt-sm-outX @ wararra-pt-sm-outY @ wararra-pt-sm-outZ @ wararra-pt-sm-outT @
+        wararra-pt-sm-outX @ wararra-pt-sm-outY @ wararra-pt-sm-outZ @ wararra-pt-sm-outT @
+        pt-double
+
+        wararra-pt-sm-k @ wararra-pt-sm-bit @ 3 >> muru c@
+        wararra-pt-sm-bit @ 7 & >> 1 &
+        yala
+            wararra-pt-sm-outX @ wararra-pt-sm-outY @ wararra-pt-sm-outZ @ wararra-pt-sm-outT @
+            wararra-pt-sm-outX @ wararra-pt-sm-outY @ wararra-pt-sm-outZ @ wararra-pt-sm-outT @
+            wararra-pt-sm-bX @ wararra-pt-sm-bY @ wararra-pt-sm-bZ @ wararra-pt-sm-bT @
+            pt-add
+        kunbayn
+
+        wararra-pt-sm-bit @ 1 dumbarril wararra-pt-sm-bit !
+    kunbayn
+kunbayn
+
+
+wararra wararra-pt-k-1
+    0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+nandal
+
 
 balkalaway jakalbaku-warri
     wararra-pt-base-T wararra-pt-base-X wararra-pt-base-Y fe-mul
 
+    wararra-pt-k-1
     wararra-pt-res-X wararra-pt-res-Y wararra-pt-res-Z wararra-pt-res-T
     wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z wararra-pt-base-T
-    pt-double
-
-    wararra-pt-zinv wararra-pt-res-Z fe-invert
-    wararra-pt-ax wararra-pt-res-X wararra-pt-zinv fe-mul
-    wararra-pt-ay wararra-pt-res-Y wararra-pt-zinv fe-mul
-    wararra-pt-ax fe-canon
-    wararra-pt-ay fe-canon
-    wararra-pt-ax fe-balkal
-    wararra-pt-ay fe-balkal
-
-    wararra-pt-res-X wararra-pt-res-Y wararra-pt-res-Z wararra-pt-res-T
-    wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z wararra-pt-base-T
-    wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z wararra-pt-base-T
-    pt-add
+    pt-smul
 
     wararra-pt-zinv wararra-pt-res-Z fe-invert
     wararra-pt-ax wararra-pt-res-X wararra-pt-zinv fe-mul
