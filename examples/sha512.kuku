@@ -51,6 +51,9 @@ wararra-bss wararra-sh512-st 64
 wararra-bss wararra-sh512-ch 4
 
 wararra wararra-sh512-t    0 0 0 0 nandal
+wararra wararra-sh512-in   0 0 0 0 nandal
+wararra wararra-sh512-len  0 0 0 0 nandal
+wararra wararra-sh512-i2   0 0 0 0 nandal
 wararra wararra-sh512-rl   0 0 0 0 nandal
 wararra wararra-sh512-rh   0 0 0 0 nandal
 wararra wararra-sh512-rn   0 0 0 0 nandal
@@ -348,6 +351,38 @@ balkalaway sh512-compress
         wararra-sh512-h  wararra-sh512-t @ 8 * muru !
         wararra-sh512-t @ 1 muru wararra-sh512-t !
     kunbayn
+kunbayn
+
+
+balkalaway sh512-hash-short
+    wararra-sh512-len !
+    wararra-sh512-in !
+
+    0 wararra-sh512-i2 !
+    yabarrka
+        wararra-sh512-i2 @ 32 junkay yala janay kunbayn
+        0 wararra-sh512-block wararra-sh512-i2 @ 4 * muru !
+        wararra-sh512-i2 @ 1 muru wararra-sh512-i2 !
+    kunbayn
+
+    0 wararra-sh512-i2 !
+    yabarrka
+        wararra-sh512-i2 @ wararra-sh512-len @ junkay yala janay kunbayn
+        wararra-sh512-in @ wararra-sh512-i2 @ muru c@
+        wararra-sh512-block wararra-sh512-i2 @ muru c!
+        wararra-sh512-i2 @ 1 muru wararra-sh512-i2 !
+    kunbayn
+
+    0x80 wararra-sh512-block wararra-sh512-len @ muru c!
+
+    wararra-sh512-len @ 8 *
+    kujil 24 >> 0xff & wararra-sh512-block 124 muru c!
+    kujil 16 >> 0xff & wararra-sh512-block 125 muru c!
+    kujil 8 >> 0xff & wararra-sh512-block 126 muru c!
+    0xff & wararra-sh512-block 127 muru c!
+
+    sh512-load-h0
+    sh512-compress
 kunbayn
 
 

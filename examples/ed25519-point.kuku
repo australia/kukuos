@@ -156,6 +156,41 @@ wararra wararra-pt-sm-bY     0 0 0 0 nandal
 wararra wararra-pt-sm-bZ     0 0 0 0 nandal
 wararra wararra-pt-sm-bT     0 0 0 0 nandal
 
+wararra wararra-pt-cp-X      0 0 0 0 nandal
+wararra wararra-pt-cp-Y      0 0 0 0 nandal
+wararra wararra-pt-cp-Z      0 0 0 0 nandal
+wararra wararra-pt-cp-out    0 0 0 0 nandal
+
+wararra-bss wararra-pt-cp-zinv  32
+wararra-bss wararra-pt-cp-ax    32
+wararra-bss wararra-pt-cp-ay    32
+
+
+balkalaway pt-compress
+    wararra-pt-cp-out !
+    wararra-pt-cp-Z !
+    wararra-pt-cp-Y !
+    wararra-pt-cp-X !
+
+    wararra-pt-cp-zinv wararra-pt-cp-Z @ fe-invert
+    wararra-pt-cp-ax wararra-pt-cp-X @ wararra-pt-cp-zinv fe-mul
+    wararra-pt-cp-ay wararra-pt-cp-Y @ wararra-pt-cp-zinv fe-mul
+    wararra-pt-cp-ax fe-canon
+    wararra-pt-cp-ay fe-canon
+
+    0 wararra-pt-cpy-i !
+    yabarrka
+        wararra-pt-cpy-i @ 8 junkay yala janay kunbayn
+        wararra-pt-cp-ay wararra-pt-cpy-i @ 4 * muru @
+        wararra-pt-cp-out @ wararra-pt-cpy-i @ 4 * muru !
+        wararra-pt-cpy-i @ 1 muru wararra-pt-cpy-i !
+    kunbayn
+
+    wararra-pt-cp-ax c@ 1 & 7 <<
+    wararra-pt-cp-out @ 31 muru c@ 0x7f & |
+    wararra-pt-cp-out @ 31 muru c!
+kunbayn
+
 
 balkalaway pt-copy32
     wararra-pt-cpy-dst !
@@ -219,19 +254,15 @@ wararra wararra-pt-k-2
 nandal
 
 
+wararra-bss wararra-pt-comp  32
+
+
 balkalaway jakalbaku-warri
     wararra-pt-base-T wararra-pt-base-X wararra-pt-base-Y fe-mul
 
-    wararra-pt-k-2
-    wararra-pt-res-X wararra-pt-res-Y wararra-pt-res-Z wararra-pt-res-T
-    wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z wararra-pt-base-T
-    pt-smul
+    wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z
+    wararra-pt-comp
+    pt-compress
 
-    wararra-pt-zinv wararra-pt-res-Z fe-invert
-    wararra-pt-ax wararra-pt-res-X wararra-pt-zinv fe-mul
-    wararra-pt-ay wararra-pt-res-Y wararra-pt-zinv fe-mul
-    wararra-pt-ax fe-canon
-    wararra-pt-ay fe-canon
-    wararra-pt-ax fe-balkal
-    wararra-pt-ay fe-balkal
+    wararra-pt-comp fe-balkal
 kunbayn
