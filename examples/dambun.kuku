@@ -1,0 +1,1756 @@
+# dambun.kuku  --  a GPT in Kuku Yalanji, no shortcuts.
+#
+# Ports Karpathy's "atomic" 200-line Python GPT to pure Kuku.  Has:
+#   * an IEEE-754-double Value arena
+#   * autograd: add / mul / pow / log / exp / relu / neg / sub
+#   * topological sort + chain-rule backward
+#   * Box-Muller Gaussian RNG
+#   * matrix init + kulbal-jina layer + RMSnorm + jalngka + cross-entropy
+#   * multi-head miyil + MLP + 1-layer Transformer forward
+#   * Adam optimizer, training loop
+#   * temperature sampling
+#
+# CLI:
+#   dambun binalku FILE          train on FILE (e.g. names.txt), save model
+#   dambun balkalaway            load model, generate 20 names
+
+
+# ============================================================================
+# IEEE-754 double constants
+# ============================================================================
+
+wararra kuku-zero     0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00  nandal   # 0.0
+wararra kuku-one      0x00 0x00 0x00 0x00 0x00 0x00 0xF0 0x3F  nandal   # 1.0
+wararra kuku-neg-one  0x00 0x00 0x00 0x00 0x00 0x00 0xF0 0xBF  nandal   # -1.0
+wararra kuku-two      0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x40  nandal   # 2.0
+wararra kuku-half     0x00 0x00 0x00 0x00 0x00 0x00 0xE0 0x3F  nandal   # 0.5
+wararra kuku-quarter  0x00 0x00 0x00 0x00 0x00 0x00 0xD0 0x3F  nandal   # 0.25
+wararra kuku-three    0x00 0x00 0x00 0x00 0x00 0x00 0x08 0x40  nandal   # 3.0
+wararra kuku-ten      0x00 0x00 0x00 0x00 0x00 0x00 0x24 0x40  nandal   # 10.0
+wararra kuku-thou     0x00 0x00 0x00 0x00 0x00 0x40 0x8F 0x40  nandal   # 1000.0
+wararra kuku-pi       0x18 0x2D 0x44 0x54 0xFB 0x21 0x09 0x40  nandal
+wararra kuku-two-pi   0x18 0x2D 0x44 0x54 0xFB 0x21 0x19 0x40  nandal
+wararra kuku-eps5     0xF1 0x68 0xE3 0x88 0xB5 0xF8 0xE4 0x3E  nandal   # 1e-5
+wararra kuku-eps8     0x3A 0x8C 0x30 0xE2 0x8E 0x79 0x45 0x3E  nandal   # 1e-8
+wararra kuku-std      0x7B 0x14 0xAE 0x47 0xE1 0x7A 0xB4 0x3F  nandal   # 0.08
+wararra kuku-lr       0x7B 0x14 0xAE 0x47 0xE1 0x7A 0x84 0x3F  nandal   # 0.01
+wararra kuku-beta1    0x33 0x33 0x33 0x33 0x33 0x33 0xEB 0x3F  nandal   # 0.85
+wararra kuku-beta2    0xAE 0x47 0xE1 0x7A 0x14 0xAE 0xEF 0x3F  nandal   # 0.99
+wararra kuku-inv-n-embd  0x00 0x00 0x00 0x00 0x00 0x00 0xB0 0x3F nandal # 1/16
+wararra kuku-sqrt-head-dim 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x40 nandal # sqrt(4)=2
+
+
+# ============================================================================
+# low-level helpers (borrowed from earlier utilities)
+# ============================================================================
+
+wararra-bss wararra-wangkanil-wararra       64
+wararra-bss wararra-kuku-junkay-p       4
+wararra-bss wararra-kuku-junkay-q       4
+
+
+balkalaway kuku-dukul
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+balkalaway kuku-junkay
+    wararra-kuku-junkay-q !
+    wararra-kuku-junkay-p !
+    yabarrka
+        wararra-kuku-junkay-p @ c@
+        wararra-kuku-junkay-q @ c@
+        junkay kari yala 0 janay kunbayn
+        wararra-kuku-junkay-p @ c@ 0 junkay yala 1 janay kunbayn
+        wararra-kuku-junkay-p @ 1 muru wararra-kuku-junkay-p !
+        wararra-kuku-junkay-q @ 1 muru wararra-kuku-junkay-q !
+    kunbayn
+kunbayn
+
+balkalaway kuku-balkal
+    # (fd ptr -)
+    kujil kuku-dukul bama-balkal wuljil
+kunbayn
+
+wararra-bss wangkanil-balkal-n     4
+wararra-bss wangkanil-balkal-tmp   4
+wararra-bss wangkanil-balkal-neg   4
+
+balkalaway wangkanil-balkal
+    # (n -) decimal to stdout
+    wararra-wangkanil-wararra wararra-tmp-ptr !
+    kujil 0 buban
+    yala
+        1 wararra-tmp-neg !
+        0 wundil dumbarril
+        yinya
+        0 wararra-tmp-neg !
+    kunbayn
+    wararra-tmp-n !
+    63 wararra-tmp-i !
+    0 wararra-wangkanil-wararra wararra-tmp-i @ muru c!
+    wararra-tmp-n @ 0 junkay
+    yala
+        wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+        0x30 wararra-wangkanil-wararra wararra-tmp-i @ muru c!
+        yinya
+        yabarrka
+            wararra-tmp-n @ 0 junkay yala janay kunbayn
+            wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+            wararra-tmp-n @ 10 kanbal 0x30 muru
+            wararra-wangkanil-wararra wararra-tmp-i @ muru c!
+            wararra-tmp-n @ 10 kulbal wararra-tmp-n !
+        kunbayn
+    kunbayn
+    wararra-tmp-neg @ yala
+        wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+        0x2D wararra-wangkanil-wararra wararra-tmp-i @ muru c!
+    kunbayn
+    1 wararra-wangkanil-wararra wararra-tmp-i @ muru 64 wararra-tmp-i @ dumbarril bama-balkal wuljil
+kunbayn
+
+wararra-bss wararra-tmp-n     4
+wararra-bss wararra-tmp-i     4
+wararra-bss wararra-tmp-j     4
+wararra-bss wararra-tmp-ptr   4
+wararra-bss wararra-tmp-neg   4
+wararra-bss wararra-bayan-base-off   4
+
+wararra wararra-jalngka-kuku "\n" 0 nandal
+
+
+balkalaway wangkanil-balkal-jalngka-kuku
+    wangkanil-balkal
+    1 wararra-jalngka-kuku 1 bama-balkal wuljil
+kunbayn
+
+
+# ============================================================================
+# Value arena.  Each Value is 48 bytes:
+#   +0   data          (double)
+#   +8   grad          (double)
+#   +16  op_type       (int)    0=leaf 1=add 2=mul 3=pow 4=log 5=exp 6=relu 7=neg
+#   +20  child1        (ptr, 0 if none)
+#   +24  child2        (ptr, 0 if none)
+#   +28  local_grad1   (double)
+#   +36  local_grad2   (double)
+#   +44  visited       (int, for topo sort)
+# ============================================================================
+
+wararra-bss wararra-value-pool    16777216   # 16 MB for the per-step graph
+wararra-bss wararra-params-pool     262144   #  256 KB for persistent model params
+
+wararra wararra-value-ptr           0 0 0 0  nandal
+wararra wararra-value-base          0 0 0 0  nandal
+wararra wararra-params-ptr          0 0 0 0  nandal
+wararra wararra-params-base         0 0 0 0  nandal
+
+# scratch for the allocator
+wararra-bss wararra-ngunnga-zero    4
+wararra-bss wararra-ngunnga-baral      4
+
+
+balkalaway kuku-bayan-ngunnga
+    wararra-value-pool wararra-value-base !
+    wararra-value-pool wararra-value-ptr !
+    wararra-params-pool wararra-params-base !
+    wararra-params-pool wararra-params-ptr !
+kunbayn
+
+balkalaway kuku-bayan-jalngka
+    # ( -- )  Throw away the per-step graph, keep params but clear their visited flag.
+    wararra-value-base @ wararra-value-ptr !
+    wararra-params-base @ wararra-ngunnga-baral !
+    yabarrka
+        wararra-ngunnga-baral @ wararra-params-ptr @ buban kari yala janay kunbayn
+        0 wararra-ngunnga-baral @ 44 muru !
+        wararra-ngunnga-baral @ 48 muru wararra-ngunnga-baral !
+    kunbayn
+kunbayn
+
+balkalaway kuku-ngunnga
+    # (pool-ptr-var -- value-addr)
+    # Bump-allocate 48 bytes and zero all fields.  Leaf ops rely on
+    # child1/child2 being 0 so topo doesn't follow garbage pointers.
+    kujil @ wararra-ngunnga-baral !
+    kujil @ 48 muru wundil !
+    0 wararra-ngunnga-baral @  8 muru !
+    0 wararra-ngunnga-baral @ 12 muru !
+    0 wararra-ngunnga-baral @ 20 muru !
+    0 wararra-ngunnga-baral @ 24 muru !
+    0 wararra-ngunnga-baral @ 44 muru !
+    wararra-ngunnga-baral @
+kunbayn
+
+balkalaway kuku-jirakal
+    # (-- addr)   allocate a scratch Value (forward-pass scope)
+    wararra-value-ptr kuku-ngunnga
+kunbayn
+
+balkalaway kuku-jirakal-param
+    # (-- addr)   allocate a persistent parameter Value
+    wararra-params-ptr kuku-ngunnga
+kunbayn
+
+
+# Value accessors --------------------------------------------------------
+
+balkalaway kuku-daya
+    # (val --)    pops FPU top into val.data
+    bana-!
+kunbayn
+
+balkalaway kuku-mana
+    # (val --)    pushes val.data onto FPU
+    bana-@
+kunbayn
+
+balkalaway kuku-jilba-mana
+    # (val --)    pushes val.grad
+    8 muru bana-@
+kunbayn
+
+balkalaway kuku-jilba-daya
+    # (val --)    pops FPU top into val.grad
+    8 muru bana-!
+kunbayn
+
+balkalaway kuku-jilba-baja
+    # (val --)    FPU top += val.grad ... wait no, val.grad += FPU top.
+    kujil 8 muru bana-@       # FPU: current val.grad
+    bana-muru                  # FPU: FPU-top + val.grad
+    8 muru bana-!
+kunbayn
+
+
+# ============================================================================
+# Value operations   (forward: compute data + set up children and local_grads)
+# ============================================================================
+
+wararra-bss wararra-jirakal-a        4
+wararra-bss wararra-jirakal-b        4
+wararra-bss wararra-jirakal-c        4
+
+
+# c = a + b
+balkalaway kuku-muru
+    # (a b -- c)
+    wararra-jirakal-b !
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    # c.data = a.data + b.data
+    wararra-jirakal-a @ bana-@
+    wararra-jirakal-b @ bana-@
+    bana-muru
+    wararra-jirakal-c @ bana-!
+
+    # op_type=1
+    1 wararra-jirakal-c @ 16 muru !
+
+    # children
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    wararra-jirakal-b @ wararra-jirakal-c @ 24 muru !
+
+    # local_grads = 1, 1
+    kuku-one bana-@ wararra-jirakal-c @ 28 muru bana-!
+    kuku-one bana-@ wararra-jirakal-c @ 36 muru bana-!
+
+    wararra-jirakal-c @
+kunbayn
+
+# c = a * b
+balkalaway kuku-jirray
+    # (a b -- c)
+    wararra-jirakal-b !
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    wararra-jirakal-a @ bana-@
+    wararra-jirakal-b @ bana-@
+    bana-*
+    wararra-jirakal-c @ bana-!
+
+    2 wararra-jirakal-c @ 16 muru !
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    wararra-jirakal-b @ wararra-jirakal-c @ 24 muru !
+
+    # local_grad1 = b.data,  local_grad2 = a.data
+    wararra-jirakal-b @ bana-@ wararra-jirakal-c @ 28 muru bana-!
+    wararra-jirakal-a @ bana-@ wararra-jirakal-c @ 36 muru bana-!
+
+    wararra-jirakal-c @
+kunbayn
+
+# c = a^n  (n is an int on the data stack)
+balkalaway kuku-warri
+    # (a n -- c)
+    wararra-tmp-n !
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    # compute a^n via repeated multiplication for n >= 0
+    kuku-one bana-@       # FPU: accumulator = 1.0
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-tmp-n @ buban kari yala janay kunbayn
+        wararra-jirakal-a @ bana-@
+        bana-*
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    wararra-jirakal-c @ bana-!
+
+    3 wararra-jirakal-c @ 16 muru !
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    0 wararra-jirakal-c @ 24 muru !
+
+    # local_grad1 = n * a.data^(n-1)
+    # compute via: (c.data / a.data) * n,  but if a.data==0 that fails.
+    # Safer: recompute a^(n-1) inline.
+    kuku-one bana-@
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-tmp-n @ 1 dumbarril buban kari yala janay kunbayn
+        wararra-jirakal-a @ bana-@
+        bana-*
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    # FPU: a^(n-1);  multiply by n
+    wararra-tmp-n @ bana-from-int
+    bana-*
+    wararra-jirakal-c @ 28 muru bana-!
+
+    kuku-zero bana-@ wararra-jirakal-c @ 36 muru bana-!
+    wararra-jirakal-c @
+kunbayn
+
+# c = log(a)     natural log
+balkalaway kuku-mulkurr
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    wararra-jirakal-a @ bana-@
+    bana-log
+    wararra-jirakal-c @ bana-!
+
+    4 wararra-jirakal-c @ 16 muru !
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    0 wararra-jirakal-c @ 24 muru !
+
+    # local_grad1 = 1 / a.data
+    kuku-one bana-@
+    wararra-jirakal-a @ bana-@
+    bana-/
+    wararra-jirakal-c @ 28 muru bana-!
+
+    kuku-zero bana-@ wararra-jirakal-c @ 36 muru bana-!
+    wararra-jirakal-c @
+kunbayn
+
+# c = exp(a)
+balkalaway kuku-baya
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    wararra-jirakal-a @ bana-@
+    bana-exp
+    wararra-jirakal-c @ bana-!
+
+    5 wararra-jirakal-c @ 16 muru !
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    0 wararra-jirakal-c @ 24 muru !
+
+    # local_grad1 = c.data  (= exp(a.data))
+    wararra-jirakal-c @ bana-@
+    wararra-jirakal-c @ 28 muru bana-!
+
+    kuku-zero bana-@ wararra-jirakal-c @ 36 muru bana-!
+    wararra-jirakal-c @
+kunbayn
+
+# c = relu(a)
+balkalaway kuku-wandil
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    wararra-jirakal-a @ bana-@
+    kuku-zero bana-@
+    bana-buban
+    yala
+        kuku-zero bana-@
+        wararra-jirakal-c @ bana-!
+        kuku-zero bana-@
+        wararra-jirakal-c @ 28 muru bana-!
+        yinya
+        wararra-jirakal-a @ bana-@
+        wararra-jirakal-c @ bana-!
+        kuku-one bana-@
+        wararra-jirakal-c @ 28 muru bana-!
+    kunbayn
+
+    6 wararra-jirakal-c @ 16 muru !
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    0 wararra-jirakal-c @ 24 muru !
+    kuku-zero bana-@ wararra-jirakal-c @ 36 muru bana-!
+    wararra-jirakal-c @
+kunbayn
+
+# c = -a
+balkalaway kuku-nandal
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    wararra-jirakal-a @ bana-@
+    bana-neg
+    wararra-jirakal-c @ bana-!
+
+    7 wararra-jirakal-c @ 16 muru !
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    0 wararra-jirakal-c @ 24 muru !
+    kuku-neg-one bana-@ wararra-jirakal-c @ 28 muru bana-!
+    kuku-zero    bana-@ wararra-jirakal-c @ 36 muru bana-!
+    wararra-jirakal-c @
+kunbayn
+
+# c = a - b     implemented as a + (-b)
+balkalaway kuku-dumbarril
+    # (a b -- c)
+    kuku-nandal kuku-muru
+kunbayn
+
+# c = 1/sqrt(a)    (so that  a^-0.5 = rsqrt(a))
+balkalaway kuku-jalngka-wundil
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    kuku-one bana-@
+    wararra-jirakal-a @ bana-@
+    bana-sqrt
+    bana-/
+    wararra-jirakal-c @ bana-!
+
+    8 wararra-jirakal-c @ 16 muru !
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    0 wararra-jirakal-c @ 24 muru !
+
+    # local_grad = -0.5 * c / a
+    wararra-jirakal-c @ bana-@
+    wararra-jirakal-a @ bana-@
+    bana-/
+    kuku-half bana-@
+    bana-*
+    bana-neg
+    wararra-jirakal-c @ 28 muru bana-!
+
+    kuku-zero bana-@ wararra-jirakal-c @ 36 muru bana-!
+    wararra-jirakal-c @
+kunbayn
+
+# c = a / b     implemented as a * (1/b)  via b^-1 leaf-const trick not trivial.
+# Implement via explicit op 8 with local grads computed at forward.
+balkalaway kuku-kulbal
+    # (a b -- c)
+    wararra-jirakal-b !
+    wararra-jirakal-a !
+    kuku-jirakal wararra-jirakal-c !
+
+    wararra-jirakal-a @ bana-@
+    wararra-jirakal-b @ bana-@
+    bana-/
+    wararra-jirakal-c @ bana-!
+
+    2 wararra-jirakal-c @ 16 muru !          # pretend this is a mul-like binary op
+    wararra-jirakal-a @ wararra-jirakal-c @ 20 muru !
+    wararra-jirakal-b @ wararra-jirakal-c @ 24 muru !
+
+    # dc/da = 1/b
+    kuku-one bana-@
+    wararra-jirakal-b @ bana-@
+    bana-/
+    wararra-jirakal-c @ 28 muru bana-!
+
+    # dc/db = -a/b^2
+    wararra-jirakal-a @ bana-@
+    bana-neg
+    wararra-jirakal-b @ bana-@
+    bana-/
+    wararra-jirakal-b @ bana-@
+    bana-/
+    wararra-jirakal-c @ 36 muru bana-!
+
+    wararra-jirakal-c @
+kunbayn
+
+
+# A leaf Value holding a constant double loaded from an address.
+balkalaway kuku-jakalmunku
+    # (double-addr -- val)
+    kuku-jirakal wararra-jirakal-c !
+    bana-@                               # FPU: double
+    wararra-jirakal-c @ bana-!               # store into val.data
+    0 wararra-jirakal-c @ 16 muru !          # op_type=0 (leaf)
+    wararra-jirakal-c @
+kunbayn
+
+balkalaway kuku-jakalmunku-param
+    # (double-addr -- val)   allocate in the parameter arena
+    kuku-jirakal-param wararra-jirakal-c !
+    bana-@
+    wararra-jirakal-c @ bana-!
+    0 wararra-jirakal-c @ 16 muru !
+    wararra-jirakal-c @
+kunbayn
+
+
+# ============================================================================
+# Topological sort + backward pass
+# ============================================================================
+
+wararra-bss wararra-jilba-wararra    524288       # 131072 value pointers
+wararra wararra-jilba-wangkanil            0 0 0 0  nandal
+wararra-bss wararra-jilba-vbt-child-a     4
+wararra-bss wararra-jilba-vbt-child-b     4
+
+
+balkalaway kuku-jilba
+    # (val --)
+    kujil 44 muru @ 0 junkay
+    yala
+        # not visited yet: mark, recurse into children, append self
+        kujil 1 wundil 44 muru !
+
+        # recurse into children.  Save children on the data stack (not
+        # globals) so the recursive call can't clobber our copy.
+        kujil 20 muru @                             # stack: (val ch1)
+        kujil 0 junkay kari
+        yala kujil kuku-jilba kunbayn
+        wuljil                                      # stack: (val)
+        kujil 24 muru @                             # stack: (val ch2)
+        kujil 0 junkay kari
+        yala kujil kuku-jilba kunbayn
+        wuljil                                      # stack: (val)
+
+        # append self to topo
+        kujil wararra-jilba-wararra wararra-jilba-wangkanil @ 4 * muru !
+        wararra-jilba-wangkanil @ 1 muru wararra-jilba-wangkanil !
+        wuljil
+        yinya
+        wuljil
+    kunbayn
+kunbayn
+
+
+wararra-bss wararra-wundil-c    4
+wararra-bss wararra-wundil-ch   4
+wararra-bss wararra-wundil-lg   4
+
+balkalaway kuku-wundil-warri
+    # (val -- )
+    # initialize topo
+    0 wararra-jilba-wangkanil !
+    kujil kuku-jilba
+
+    # val.grad = 1.0
+    kuku-one bana-@
+    8 muru bana-!
+
+    # iterate topo in reverse, propagating grads.
+    wararra-jilba-wangkanil @ 1 dumbarril wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 0 buban yala janay kunbayn
+        wararra-jilba-wararra wararra-tmp-i @ 4 * muru @ wararra-wundil-c !
+
+        # child1 gets local_grad1 * c.grad
+        wararra-wundil-c @ 20 muru @ wararra-wundil-ch !
+        wararra-wundil-ch @ 0 junkay kari
+        yala
+            wararra-wundil-ch @ 8 muru bana-@       # child.grad
+            wararra-wundil-c @ 28 muru bana-@      # local_grad1
+            wararra-wundil-c @ 8 muru bana-@      # c.grad
+            bana-*
+            bana-muru
+            wararra-wundil-ch @ 8 muru bana-!
+        kunbayn
+
+        # child2 gets local_grad2 * c.grad
+        wararra-wundil-c @ 24 muru @ wararra-wundil-ch !
+        wararra-wundil-ch @ 0 junkay kari
+        yala
+            wararra-wundil-ch @ 8 muru bana-@
+            wararra-wundil-c @ 36 muru bana-@
+            wararra-wundil-c @ 8 muru bana-@
+            bana-*
+            bana-muru
+            wararra-wundil-ch @ 8 muru bana-!
+        kunbayn
+
+        wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# STAGE TEST: gradient descent on y = (x - 3)^2   ->   should find x = 3.
+# Run with `dambun ngana-warri` to prove autograd works.
+# ============================================================================
+
+wararra-bss wararra-ngana-x-baral    4     # points at x's Value
+wararra wararra-ngana-x-jakalbaku  0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 nandal   # 0.0
+wararra-bss wararra-ngana-tmp       8
+
+
+balkalaway ngana-nyubun
+    # one gradient-descent step.  x.grad is already computed.
+    # x.data -= lr * x.grad
+    wararra-ngana-x-baral @ bana-@                    # FPU: x.data
+    wararra-ngana-x-baral @ 8 muru bana-@              # FPU: x.grad
+    kuku-lr bana-@
+    bana-*                                         # FPU: lr * x.grad
+    bana-dumbarril                                 # FPU: x.data - lr*x.grad
+    wararra-ngana-x-baral @ bana-!                    # x.data = new
+
+    # zero the grad for next step
+    kuku-zero bana-@
+    wararra-ngana-x-baral @ 8 muru bana-!
+kunbayn
+
+
+wararra-bss wararra-ngana-wangkanil 4
+
+
+balkalaway warri-ngana
+    kuku-bayan-ngunnga
+    wararra-ngana-x-jakalbaku kuku-jakalmunku-param wararra-ngana-x-baral !
+
+    2 "ngana-warri: jakalbaku x * 1000 = " 34 bama-balkal wuljil
+    wararra-ngana-x-baral @ bana-@ kuku-thou bana-@ bana-* bana-to-int wangkanil-balkal-jalngka-kuku
+
+    0 wararra-ngana-wangkanil !
+    yabarrka
+        wararra-ngana-wangkanil @ 500 buban kari yala janay kunbayn
+
+        wararra-ngana-x-baral @
+        kuku-three kuku-jakalmunku
+        kuku-dumbarril
+        2 kuku-warri
+
+        kuku-wundil-warri
+        ngana-nyubun
+        kuku-bayan-jalngka
+
+        wararra-ngana-wangkanil @ 1 muru wararra-ngana-wangkanil !
+    kunbayn
+
+    2 "ngana-warri: kunbayn    x * 1000 = " 34 bama-balkal wuljil
+    wararra-ngana-x-baral @ bana-@ kuku-thou bana-@ bana-* bana-to-int wangkanil-balkal-jalngka-kuku
+kunbayn
+
+
+# ============================================================================
+# Random: xorshift32 + Box-Muller
+# ============================================================================
+
+wararra wararra-2pow31  0x00 0x00 0x00 0x00 0x00 0x00 0xE0 0x41  nandal
+wararra wararra-wumba-dukurr  42 0 0 0  nandal                    # seed
+wararra-bss wararra-wumba-tmp 4
+wararra wararra-urandom-path "/dev/urandom" 0 nandal
+
+
+balkalaway wumba-jirakal
+    # ( -- u32 )   xorshift32
+    wararra-wumba-dukurr @
+    kujil 13 << ^
+    kujil 17 >> ^
+    kujil  5 << ^
+    kujil wararra-wumba-dukurr !
+kunbayn
+
+balkalaway wumba-ngunnga
+    wararra-urandom-path 0 bama-ngunnga kujil 0 jirray
+    yala
+        kujil wararra-wumba-dukurr 4 bama-babaji wuljil
+        bama-nandal wuljil
+        yinya
+        wuljil
+    kunbayn
+    wararra-wumba-dukurr @ 0 junkay yala 1 wararra-wumba-dukurr ! kunbayn
+kunbayn
+
+balkalaway wumba-nyubun
+    # ( -- u )   push double u in (0, 1) onto FPU
+    yabarrka
+        wumba-jirakal 0x7FFFFFFF & wararra-wumba-tmp !
+        wararra-wumba-tmp @ 0 junkay kari yala janay kunbayn
+    kunbayn
+    wararra-wumba-tmp @ bana-from-int
+    wararra-2pow31 bana-@
+    bana-/
+kunbayn
+
+balkalaway wumba-jambul
+    # ( -- z )   standard normal via Box-Muller (uses one sample, wastes the other)
+    wumba-nyubun                      # FPU: U1
+    bana-log                             # ln(U1)
+    kuku-neg-one bana-@  bana-*         # -ln(U1)
+    kuku-two bana-@      bana-*         # -2 ln(U1)
+    bana-sqrt                            # sqrt(-2 ln U1)
+    wumba-nyubun                      # U2
+    kuku-two-pi bana-@   bana-*         # 2 pi U2
+    bana-cos
+    bana-*                                # z0
+kunbayn
+
+balkalaway wumba-jambul-jirray
+    # ( std-addr -- z*std )   z ~ N(0, std^2)
+    bana-@
+    wumba-jambul
+    bana-*
+kunbayn
+
+
+# ============================================================================
+# Tokenizer: 26 lowercase letters + BOS
+#    a..z  ->  0..25
+#    BOS   =  26
+#    vocab_size = 27
+# ============================================================================
+
+wararra-bss wararra-doc-buf     524288            # 512 KB of corpus
+wararra wararra-doc-size  0 0 0 0  nandal
+
+balkalaway bana-babaji
+    # (path --)   open FILE, read entire contents into wararra-doc-buf
+    0 bama-ngunnga kujil 0 buban
+    yala "bana ngunnga kari\n" 18 wundil wundil bama-balkal wuljil 1 bama-kunbayn kunbayn
+
+    0 wararra-doc-size !
+    yabarrka
+        kujil
+        wararra-doc-buf wararra-doc-size @ muru
+        524288 wararra-doc-size @ dumbarril
+        bama-babaji
+        kujil 1 buban yala wuljil janay kunbayn
+        wararra-doc-size @ muru wararra-doc-size !
+    kunbayn
+    bama-nandal wuljil
+kunbayn
+
+
+# ============================================================================
+# Model hyperparameters and parameter arena
+# ============================================================================
+#
+# vocab_size = 27  (26 letters + BOS)   --  not parameterised (hardcoded below)
+# n_embd     = 16
+# n_layer    = 1
+# n_head     = 4    head_dim = n_embd / n_head = 4
+# block_size = 16
+#
+# Params are allocated in params-pool in a fixed order so we can locate
+# any matrix by base + (row * ncols + col) * 48.
+#
+# Param region layout (offsets from params-base):
+#     0       wte       : 27 * 16 * 48 = 20736 bytes
+#     20736   wpe       : 16 * 16 * 48 = 12288
+#     33024   lm_head   : 27 * 16 * 48 = 20736
+#     53760   wq        : 16 * 16 * 48 = 12288
+#     66048   wk        : 16 * 16 * 48 = 12288
+#     78336   wv        : 16 * 16 * 48 = 12288
+#     90624   wo        : 16 * 16 * 48 = 12288
+#     102912  fc1       : 64 * 16 * 48 = 49152
+#     152064  fc2       : 16 * 64 * 48 = 49152
+#     201216  <end>                            total = 201216 bytes
+
+wararra wararra-off-wte     0      0 0 0  nandal
+wararra wararra-off-wpe     20736  0 0 0  nandal   # FIXME: only low byte; fix below
+wararra wararra-off-lmhead  33024  0 0 0  nandal
+wararra wararra-off-wq      53760  0 0 0  nandal
+wararra wararra-off-wk      66048  0 0 0  nandal
+wararra wararra-off-wv      78336  0 0 0  nandal
+wararra wararra-off-wo      90624  0 0 0  nandal
+wararra wararra-off-fc1     102912 0 0 0  nandal
+wararra wararra-off-fc2     152064 0 0 0  nandal
+wararra wararra-n-params    4192   0 0 0  nandal
+
+
+# Safer: store multi-byte offsets as raw bytes so we're sure of the encoding.
+# (Small unsigned ints fit in 4 little-endian bytes.  The bytes above are
+# only correct when each decimal literal is < 256 and no whitespace tricks
+# bite; the comma-separated "0 0 0" following is 3 single-byte zeros.  But
+# 20736 > 255 overflows a single byte, so those definitions are wrong.)
+# Override with raw-byte definitions below (we use these going forward).
+
+wararra w-off-wte       0x00 0x00 0x00 0x00  nandal
+wararra w-off-wpe       0x00 0x51 0x00 0x00  nandal     #  20736
+wararra w-off-lmhead    0x00 0x81 0x00 0x00  nandal     #  33024
+wararra w-off-wq        0x00 0xD2 0x00 0x00  nandal     #  53760
+wararra w-off-wk        0x00 0x02 0x01 0x00  nandal     #  66048
+wararra w-off-wv        0x00 0x32 0x01 0x00  nandal     #  78336
+wararra w-off-wo        0x00 0x62 0x01 0x00  nandal     #  90624
+wararra w-off-fc1       0x00 0x92 0x01 0x00  nandal     # 102912
+wararra w-off-fc2       0x00 0x52 0x02 0x00  nandal     # 152064
+
+# Matrix-access helpers.  Each returns the address of a single Value.
+
+balkalaway bayan-jina
+    # (row ncols col base -- value-addr)
+    wararra-bayan-base-off !        # base-offset (on top)
+    wararra-tmp-n !                 # col
+    wararra-tmp-i !                 # ncols
+    wararra-tmp-ptr !               # row
+    # offset = base + (row * ncols + col) * 48
+    wararra-tmp-ptr @ wararra-tmp-i @ * wararra-tmp-n @ muru 48 * wararra-bayan-base-off @ muru
+    wararra-params-base @ muru
+kunbayn
+
+balkalaway bayan-wte    # (tok embd -- val)  16 cols
+    16 wundil w-off-wte @ bayan-jina
+kunbayn
+
+balkalaway bayan-wpe    # (pos embd --)  16 cols
+    16 wundil w-off-wpe @ bayan-jina
+kunbayn
+
+balkalaway bayan-lmhead # (vocab embd --)  16 cols
+    16 wundil w-off-lmhead @ bayan-jina
+kunbayn
+
+balkalaway bayan-wq     # (out in --)  16 cols
+    16 wundil w-off-wq @ bayan-jina
+kunbayn
+
+balkalaway bayan-wk
+    16 wundil w-off-wk @ bayan-jina
+kunbayn
+
+balkalaway bayan-wv
+    16 wundil w-off-wv @ bayan-jina
+kunbayn
+
+balkalaway bayan-wo
+    16 wundil w-off-wo @ bayan-jina
+kunbayn
+
+balkalaway bayan-fc1    # (out in --)   64x16, 16 cols
+    16 wundil w-off-fc1 @ bayan-jina
+kunbayn
+
+balkalaway bayan-fc2    # (out in --)  16x64, 64 cols
+    64 wundil w-off-fc2 @ bayan-jina
+kunbayn
+
+
+# Fill a matrix with gauss-init values.  (base-offset rows cols --)
+wararra-bss wararra-bayan-r       4
+wararra-bss wararra-bayan-c       4
+wararra-bss wararra-bayan-rows    4
+wararra-bss wararra-bayan-cols    4
+wararra-bss wararra-bayan-ngunnga    4
+
+balkalaway bayan-ngunnga-wumba
+    wararra-bayan-cols !
+    wararra-bayan-rows !
+    wararra-bayan-ngunnga !
+    0 wararra-bayan-r !
+    yabarrka
+        wararra-bayan-r @ wararra-bayan-rows @ buban kari yala janay kunbayn
+        0 wararra-bayan-c !
+        yabarrka
+            wararra-bayan-c @ wararra-bayan-cols @ buban kari yala janay kunbayn
+            # gauss * std
+            kuku-std wumba-jambul-jirray
+            # allocate a param value, set data
+            kuku-jirakal-param wararra-jirakal-c !
+            wararra-jirakal-c @ bana-!
+            0 wararra-jirakal-c @ 16 muru !        # op_type=0 (leaf)
+            wararra-bayan-c @ 1 muru wararra-bayan-c !
+        kunbayn
+        wararra-bayan-r @ 1 muru wararra-bayan-r !
+    kunbayn
+kunbayn
+
+balkalaway bayan-ngunnga
+    # allocate and gauss-initialize all params in order
+    kuku-bayan-ngunnga
+    0 27 16 bayan-ngunnga-wumba         # wte
+    0 16 16 bayan-ngunnga-wumba         # wpe
+    0 27 16 bayan-ngunnga-wumba         # lm_head
+    0 16 16 bayan-ngunnga-wumba         # wq
+    0 16 16 bayan-ngunnga-wumba         # wk
+    0 16 16 bayan-ngunnga-wumba         # wv
+    0 16 16 bayan-ngunnga-wumba         # wo
+    0 64 16 bayan-ngunnga-wumba         # fc1
+    0 16 64 bayan-ngunnga-wumba         # fc2
+kunbayn
+
+
+# ============================================================================
+# Matrix-vector kulbal-jina layer.  Python:
+#     def kulbal-jina(x, w):
+#         return [sum(wi * xi for wi, xi in zip(wo, x)) for wo in w]
+#
+# x: array of n_in Value-pointers (addresses)
+# w: matrix base offset; w[out][in] = param at (out, in)
+# nout, nin: dims
+# out-buf: pre-allocated array of nout Value-pointers (addresses)
+# ============================================================================
+
+wararra-bss wararra-kulbal-x        4
+wararra-bss wararra-kulbal-w    4
+wararra-bss wararra-kulbal-out      4
+wararra-bss wararra-kulbal-nout     4
+wararra-bss wararra-kulbal-nin      4
+wararra-bss wararra-kulbal-o        4
+wararra-bss wararra-kulbal-j        4
+wararra-bss wararra-kulbal-muru      4
+
+balkalaway kulbal-jina
+    # (bana-x w-off out-buf nout nin --)
+    wararra-kulbal-nin !
+    wararra-kulbal-nout !
+    wararra-kulbal-out !
+    wararra-kulbal-w !
+    wararra-kulbal-x !
+
+    0 wararra-kulbal-o !
+    yabarrka
+        wararra-kulbal-o @ wararra-kulbal-nout @ buban kari yala janay kunbayn
+
+        # acc = w[o][0] * x[0]
+        wararra-kulbal-o @ wararra-kulbal-nin @ 0 wararra-kulbal-w @ bayan-jina
+        wararra-kulbal-x @ 0 4 * muru @
+        kuku-jirray wararra-kulbal-muru !
+
+        1 wararra-kulbal-j !
+        yabarrka
+            wararra-kulbal-j @ wararra-kulbal-nin @ buban kari yala janay kunbayn
+            wararra-kulbal-o @ wararra-kulbal-nin @ wararra-kulbal-j @ wararra-kulbal-w @ bayan-jina
+            wararra-kulbal-x @ wararra-kulbal-j @ 4 * muru @
+            kuku-jirray
+            wararra-kulbal-muru @ kuku-muru wararra-kulbal-muru !
+            wararra-kulbal-j @ 1 muru wararra-kulbal-j !
+        kunbayn
+
+        wararra-kulbal-muru @
+        wararra-kulbal-out @ wararra-kulbal-o @ 4 * muru !
+        wararra-kulbal-o @ 1 muru wararra-kulbal-o !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# RMSnorm   ( Python: jalkar(x) = x * (ms + 1e-5)^-0.5 )
+# ============================================================================
+
+wararra-bss wararra-jalkar-x      4
+wararra-bss wararra-jalkar-n      4
+wararra-bss wararra-jalkar-i      4
+wararra-bss wararra-jalkar-muru    4
+wararra-bss wararra-jalkar-ms     4
+wararra-bss wararra-jalkar-mseps   4
+wararra-bss wararra-jalkar-jirray  4
+
+balkalaway jalkar
+    # (bana-x n --)    in place: x[i] <- x[i] * scale
+    wararra-jalkar-n !
+    wararra-jalkar-x !
+
+    # sum-of-squares
+    wararra-jalkar-x @ 0 4 * muru @ kujil kuku-jirray wararra-jalkar-muru !
+    1 wararra-jalkar-i !
+    yabarrka
+        wararra-jalkar-i @ wararra-jalkar-n @ buban kari yala janay kunbayn
+        wararra-jalkar-x @ wararra-jalkar-i @ 4 * muru @ kujil kuku-jirray
+        wararra-jalkar-muru @ kuku-muru wararra-jalkar-muru !
+        wararra-jalkar-i @ 1 muru wararra-jalkar-i !
+    kunbayn
+
+    # ms = sum / n     (n=16 hard-coded via kuku-inv-n-embd = 1/16)
+    wararra-jalkar-muru @ kuku-inv-n-embd kuku-jakalmunku kuku-jirray wararra-jalkar-ms !
+
+    # msep = ms + eps
+    wararra-jalkar-ms @ kuku-eps5 kuku-jakalmunku kuku-muru wararra-jalkar-mseps !
+
+    # scale = 1 / sqrt(msep)
+    wararra-jalkar-mseps @ kuku-jalngka-wundil wararra-jalkar-jirray !
+
+    # x[i] *= scale
+    0 wararra-jalkar-i !
+    yabarrka
+        wararra-jalkar-i @ wararra-jalkar-n @ buban kari yala janay kunbayn
+        wararra-jalkar-x @ wararra-jalkar-i @ 4 * muru @
+        wararra-jalkar-jirray @ kuku-jirray
+        wararra-jalkar-x @ wararra-jalkar-i @ 4 * muru !
+        wararra-jalkar-i @ 1 muru wararra-jalkar-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Softmax  (numerically stabilised: subtract max first)
+# ============================================================================
+
+wararra-bss wararra-jalngka-logits  4
+wararra-bss wararra-jalngka-n       4
+wararra-bss wararra-jalngka-i       4
+wararra-bss wararra-jalngka-dukul     8
+wararra-bss wararra-jalngka-dukul-v   4
+wararra-bss wararra-jalngka-muru     4
+
+balkalaway jalngka
+    # (balkal-jina n --)  in place.
+    wararra-jalngka-n !
+    wararra-jalngka-logits !
+
+    # find max (raw data, no autograd; subtracting a constant leaves grad invariant)
+    wararra-jalngka-logits @ 0 4 * muru @ bana-@
+    wararra-jalngka-dukul bana-!
+    1 wararra-jalngka-i !
+    yabarrka
+        wararra-jalngka-i @ wararra-jalngka-n @ buban kari yala janay kunbayn
+        wararra-jalngka-logits @ wararra-jalngka-i @ 4 * muru @ bana-@
+        wararra-jalngka-dukul bana-@
+        bana-jirray
+        yala
+            wararra-jalngka-logits @ wararra-jalngka-i @ 4 * muru @ bana-@
+            wararra-jalngka-dukul bana-!
+        kunbayn
+        wararra-jalngka-i @ 1 muru wararra-jalngka-i !
+    kunbayn
+
+    # max as a leaf Value (const, no grad)
+    wararra-jalngka-dukul kuku-jakalmunku wararra-jalngka-dukul-v !
+
+    # exps[i] = exp(logits[i] - max)
+    0 wararra-jalngka-i !
+    yabarrka
+        wararra-jalngka-i @ wararra-jalngka-n @ buban kari yala janay kunbayn
+        wararra-jalngka-logits @ wararra-jalngka-i @ 4 * muru @
+        wararra-jalngka-dukul-v @ kuku-dumbarril
+        kuku-baya
+        wararra-jalngka-logits @ wararra-jalngka-i @ 4 * muru !
+        wararra-jalngka-i @ 1 muru wararra-jalngka-i !
+    kunbayn
+
+    # total = sum(exps)
+    wararra-jalngka-logits @ 0 4 * muru @ wararra-jalngka-muru !
+    1 wararra-jalngka-i !
+    yabarrka
+        wararra-jalngka-i @ wararra-jalngka-n @ buban kari yala janay kunbayn
+        wararra-jalngka-logits @ wararra-jalngka-i @ 4 * muru @
+        wararra-jalngka-muru @ kuku-muru wararra-jalngka-muru !
+        wararra-jalngka-i @ 1 muru wararra-jalngka-i !
+    kunbayn
+
+    # probs[i] = exps[i] / total
+    0 wararra-jalngka-i !
+    yabarrka
+        wararra-jalngka-i @ wararra-jalngka-n @ buban kari yala janay kunbayn
+        wararra-jalngka-logits @ wararra-jalngka-i @ 4 * muru @
+        wararra-jalngka-muru @
+        kuku-kulbal
+        wararra-jalngka-logits @ wararra-jalngka-i @ 4 * muru !
+        wararra-jalngka-i @ 1 muru wararra-jalngka-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Attention cache:
+#   For n_layer = 1, we keep a flat array keys[t][j] for t in [0, block_size),
+#   j in [0, n_embd).  Same for values[].  Grown by forward(pos_id, ...).
+# ============================================================================
+
+wararra-bss wararra-miyil-k   1024   # 16 positions * 16 dims * 4 byte ptrs
+wararra-bss wararra-miyil-v   1024
+wararra wararra-miyil-wangkanil  0 0 0 0  nandal
+
+# scratch buffers used inside bayan-warri
+wararra-bss wararra-bana-x             64      # 16 embd * 4 byte ptr
+wararra-bss wararra-bana-jarra             64
+wararra-bss wararra-bana-q             64
+wararra-bss wararra-bana-k             64
+wararra-bss wararra-bana-v             64
+wararra-bss wararra-miyil-jina         64
+wararra-bss wararra-dukurr-jina      256      # 64 * 4
+wararra-bss wararra-balkal-jina       108      # 27 * 4
+wararra-bss wararra-attn-balkal-jina   64      # up to 16 t-slots
+wararra-bss wararra-dukul-jina          16      # head_dim=4 * 4 byte ptr
+
+
+# ============================================================================
+# Multi-head miyil.  For the current position pos_id (0-indexed), we've
+# already computed q[],k[],v[] and appended k/v to the KV cache.
+# Writes x_attn[] (n_embd pointers) to wararra-miyil-jina.
+# ============================================================================
+
+wararra-bss wararra-miyil-h         4
+wararra-bss wararra-miyil-t         4
+wararra-bss wararra-miyil-j         4
+wararra-bss wararra-miyil-hs        4
+wararra-bss wararra-miyil-muru       4
+wararra-bss wararra-miyil-T         4
+wararra wararra-junkay-hd   0 0 0 0 nandal   # cached Value* for sqrt(head_dim)
+
+
+balkalaway miyil
+    # (--)      consumes wararra-bana-q, wararra-miyil-k, wararra-miyil-v.
+    # wararra-miyil-wangkanil already reflects the new (k,v) entry for pos_id.
+    wararra-miyil-wangkanil @ wararra-miyil-T !
+
+    0 wararra-miyil-h !
+    yabarrka
+        wararra-miyil-h @ 4 buban kari yala janay kunbayn         # n_head=4
+        wararra-miyil-h @ 4 * wararra-miyil-hs !                    # head_dim=4
+
+        # Build attn_logits[0..T) = (q_h · k_h[t]) / sqrt(head_dim)
+        0 wararra-miyil-t !
+        yabarrka
+            wararra-miyil-t @ wararra-miyil-T @ buban kari yala janay kunbayn
+            # dot product over head_dim=4
+            wararra-bana-q wararra-miyil-hs @ 4 * muru @
+            wararra-miyil-k wararra-miyil-t @ 64 * muru wararra-miyil-hs @ 4 * muru @
+            kuku-jirray wararra-miyil-muru !
+
+            1 wararra-miyil-j !
+            yabarrka
+                wararra-miyil-j @ 4 buban kari yala janay kunbayn
+                wararra-bana-q wararra-miyil-hs @ wararra-miyil-j @ muru 4 * muru @
+                wararra-miyil-k wararra-miyil-t @ 64 * muru wararra-miyil-hs @ wararra-miyil-j @ muru 4 * muru @
+                kuku-jirray
+                wararra-miyil-muru @ kuku-muru wararra-miyil-muru !
+                wararra-miyil-j @ 1 muru wararra-miyil-j !
+            kunbayn
+
+            # divide by sqrt(head_dim)
+            wararra-miyil-muru @
+            kuku-sqrt-head-dim kuku-jakalmunku
+            kuku-kulbal
+            wararra-attn-balkal-jina wararra-miyil-t @ 4 * muru !
+            wararra-miyil-t @ 1 muru wararra-miyil-t !
+        kunbayn
+
+        # jalngka in place
+        wararra-attn-balkal-jina wararra-miyil-T @ jalngka
+
+        # head_out[j] = sum_t weights[t] * v_h[t][j]   for j in [0, head_dim)
+        0 wararra-miyil-j !
+        yabarrka
+            wararra-miyil-j @ 4 buban kari yala janay kunbayn
+
+            wararra-attn-balkal-jina 0 4 * muru @
+            wararra-miyil-v 0 64 * muru wararra-miyil-hs @ wararra-miyil-j @ muru 4 * muru @
+            kuku-jirray wararra-miyil-muru !
+
+            1 wararra-miyil-t !
+            yabarrka
+                wararra-miyil-t @ wararra-miyil-T @ buban kari yala janay kunbayn
+                wararra-attn-balkal-jina wararra-miyil-t @ 4 * muru @
+                wararra-miyil-v wararra-miyil-t @ 64 * muru wararra-miyil-hs @ wararra-miyil-j @ muru 4 * muru @
+                kuku-jirray
+                wararra-miyil-muru @ kuku-muru wararra-miyil-muru !
+                wararra-miyil-t @ 1 muru wararra-miyil-t !
+            kunbayn
+
+            wararra-miyil-muru @
+            wararra-miyil-jina wararra-miyil-hs @ wararra-miyil-j @ muru 4 * muru !
+            wararra-miyil-j @ 1 muru wararra-miyil-j !
+        kunbayn
+
+        wararra-miyil-h @ 1 muru wararra-miyil-h !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# GPT forward: one token at position pos_id.
+# Fills wararra-balkal-jina with 27 Value pointers (unnormalised).
+# ============================================================================
+
+wararra-bss wararra-bayan-jina       4
+wararra-bss wararra-bayan-baral       4
+wararra-bss wararra-bayan-i         4
+
+
+balkalaway bayan-warri
+    # (tok pos --)    Side-effect: writes wararra-balkal-jina and grows KV cache.
+    wararra-bayan-baral !
+    wararra-bayan-jina !
+
+    # x[i] = wte[tok][i] + wpe[pos][i]
+    0 wararra-bayan-i !
+    yabarrka
+        wararra-bayan-i @ 16 buban kari yala janay kunbayn
+        wararra-bayan-jina @ wararra-bayan-i @ bayan-wte
+        wararra-bayan-baral @ wararra-bayan-i @ bayan-wpe
+        kuku-muru
+        wararra-bana-x wararra-bayan-i @ 4 * muru !
+        wararra-bayan-i @ 1 muru wararra-bayan-i !
+    kunbayn
+
+    # --- miyil block ---
+    # save residual
+    0 wararra-bayan-i !
+    yabarrka
+        wararra-bayan-i @ 16 buban kari yala janay kunbayn
+        wararra-bana-x wararra-bayan-i @ 4 * muru @
+        wararra-bana-jarra wararra-bayan-i @ 4 * muru !
+        wararra-bayan-i @ 1 muru wararra-bayan-i !
+    kunbayn
+
+    # q,k,v = kulbal-jina(x, Wq), kulbal-jina(x, Wk), kulbal-jina(x, Wv)
+    wararra-bana-x w-off-wq @ wararra-bana-q 16 16 kulbal-jina
+    wararra-bana-x w-off-wk @ wararra-bana-k 16 16 kulbal-jina
+    wararra-bana-x w-off-wv @ wararra-bana-v 16 16 kulbal-jina
+
+    # append k,v to KV cache
+    0 wararra-bayan-i !
+    yabarrka
+        wararra-bayan-i @ 16 buban kari yala janay kunbayn
+        wararra-bana-k wararra-bayan-i @ 4 * muru @
+        wararra-miyil-k wararra-bayan-baral @ 64 * muru wararra-bayan-i @ 4 * muru !
+        wararra-bana-v wararra-bayan-i @ 4 * muru @
+        wararra-miyil-v wararra-bayan-baral @ 64 * muru wararra-bayan-i @ 4 * muru !
+        wararra-bayan-i @ 1 muru wararra-bayan-i !
+    kunbayn
+    wararra-bayan-baral @ 1 muru wararra-miyil-wangkanil !
+
+    # miyil
+    miyil
+
+    # x = kulbal-jina(x_attn, Wo)
+    wararra-miyil-jina w-off-wo @ wararra-bana-x 16 16 kulbal-jina
+
+    # x += residual
+    0 wararra-bayan-i !
+    yabarrka
+        wararra-bayan-i @ 16 buban kari yala janay kunbayn
+        wararra-bana-x wararra-bayan-i @ 4 * muru @
+        wararra-bana-jarra wararra-bayan-i @ 4 * muru @
+        kuku-muru
+        wararra-bana-x wararra-bayan-i @ 4 * muru !
+        wararra-bayan-i @ 1 muru wararra-bayan-i !
+    kunbayn
+
+    # --- MLP block ---
+    # save residual
+    0 wararra-bayan-i !
+    yabarrka
+        wararra-bayan-i @ 16 buban kari yala janay kunbayn
+        wararra-bana-x wararra-bayan-i @ 4 * muru @
+        wararra-bana-jarra wararra-bayan-i @ 4 * muru !
+        wararra-bayan-i @ 1 muru wararra-bayan-i !
+    kunbayn
+
+    wararra-bana-x 16 jalkar
+
+    # hidden = kulbal-jina(x, Wfc1)  64 outputs
+    wararra-bana-x w-off-fc1 @ wararra-dukurr-jina 64 16 kulbal-jina
+
+    # hidden = relu(hidden)
+    0 wararra-bayan-i !
+    yabarrka
+        wararra-bayan-i @ 64 buban kari yala janay kunbayn
+        wararra-dukurr-jina wararra-bayan-i @ 4 * muru @
+        kuku-wandil
+        wararra-dukurr-jina wararra-bayan-i @ 4 * muru !
+        wararra-bayan-i @ 1 muru wararra-bayan-i !
+    kunbayn
+
+    # x = kulbal-jina(hidden, Wfc2)  16 outputs
+    wararra-dukurr-jina w-off-fc2 @ wararra-bana-x 16 64 kulbal-jina
+
+    # residual add
+    0 wararra-bayan-i !
+    yabarrka
+        wararra-bayan-i @ 16 buban kari yala janay kunbayn
+        wararra-bana-x wararra-bayan-i @ 4 * muru @
+        wararra-bana-jarra wararra-bayan-i @ 4 * muru @
+        kuku-muru
+        wararra-bana-x wararra-bayan-i @ 4 * muru !
+        wararra-bayan-i @ 1 muru wararra-bayan-i !
+    kunbayn
+
+    # logits = kulbal-jina(x, lm_head)   27 outputs
+    wararra-bana-x w-off-lmhead @ wararra-balkal-jina 27 16 kulbal-jina
+kunbayn
+
+
+# ============================================================================
+# Training step: one document, forward each position, accumulate loss, backward
+# ============================================================================
+
+wararra-bss wararra-binalku-n       4
+wararra-bss wararra-binalku-p       4
+wararra-bss wararra-binalku-jina     4
+wararra-bss wararra-binalku-jinya     4
+wararra-bss wararra-binalku-birru-narmba   64           # up to 16 losses, 4 byte ptrs
+wararra-bss wararra-binalku-birru-muru 4
+wararra-bss wararra-binalku-kunbayn    4
+wararra-bss wararra-binalku-k          4
+
+
+balkalaway binalku-nyubun
+    # (jina-narmba-buf n --)       jina-narmba is an int[] of length n+1 (BOS + chars + BOS).
+    # Leaves wararra-binalku-kunbayn = the loss Value.
+    wararra-binalku-n !
+    wararra-binalku-p !
+
+    # reset KV cache
+    0 wararra-miyil-wangkanil !
+
+    0 wararra-binalku-k !
+    yabarrka
+        wararra-binalku-k @ wararra-binalku-n @ buban kari yala janay kunbayn
+
+        wararra-binalku-p @ wararra-binalku-k @ 4 * muru @ wararra-binalku-jina !
+        wararra-binalku-p @ wararra-binalku-k @ 1 muru 4 * muru @ wararra-binalku-jinya !
+
+        wararra-binalku-jina @ wararra-binalku-k @ bayan-warri
+        wararra-balkal-jina 27 jalngka
+        # loss = -log(probs[target])
+        wararra-balkal-jina wararra-binalku-jinya @ 4 * muru @
+        kuku-mulkurr
+        kuku-nandal
+        wararra-binalku-birru-narmba wararra-binalku-k @ 4 * muru !
+        wararra-binalku-k @ 1 muru wararra-binalku-k !
+    kunbayn
+
+    # total = sum(losses)
+    wararra-binalku-birru-narmba 0 4 * muru @ wararra-binalku-birru-muru !
+    1 wararra-binalku-k !
+    yabarrka
+        wararra-binalku-k @ wararra-binalku-n @ buban kari yala janay kunbayn
+        wararra-binalku-birru-narmba wararra-binalku-k @ 4 * muru @
+        wararra-binalku-birru-muru @ kuku-muru wararra-binalku-birru-muru !
+        wararra-binalku-k @ 1 muru wararra-binalku-k !
+    kunbayn
+
+    # final = total * (1 / n)        (n as a runtime const Value)
+    kuku-jirakal wararra-binalku-kunbayn !
+    wararra-binalku-n @ bana-from-int
+    wararra-binalku-kunbayn @ bana-!
+    0 wararra-binalku-kunbayn @ 16 muru !
+    kuku-one bana-@
+    wararra-binalku-kunbayn @ bana-@
+    bana-/
+    kuku-jirakal wararra-jirakal-c !
+    wararra-jirakal-c @ bana-!
+    0 wararra-jirakal-c @ 16 muru !
+
+    wararra-binalku-birru-muru @ wararra-jirakal-c @ kuku-jirray
+    wararra-binalku-kunbayn !
+kunbayn
+
+
+# ============================================================================
+# Adam: iterate the parameter arena, update each param from its .grad.
+# ============================================================================
+
+wararra-bss wararra-dukurr-jambul-wararra   33536     # 4192 doubles
+wararra-bss wararra-dukurr-kulur-wararra   33536
+wararra-bss wararra-dukurr-warri    4
+wararra-bss wararra-dukurr-wangkanil       4
+wararra-bss wararra-dukurr-p       4
+wararra-bss wararra-dukurr-mara  8
+wararra-bss wararra-dukurr-b1-jirray  8
+wararra-bss wararra-dukurr-b2-jirray  8
+
+
+wararra-bss wararra-dukurr-jilba    8
+wararra-bss wararra-dukurr-tmp  8
+
+
+balkalaway dukurr-jirakal
+    # ( -- )  reads wararra-dukurr-mara, wararra-dukurr-b1-jirray, wararra-dukurr-b2-jirray.
+    wararra-params-base @ wararra-dukurr-p !
+    0 wararra-dukurr-wangkanil !
+    yabarrka
+        wararra-dukurr-p @ wararra-params-ptr @ buban kari yala janay kunbayn
+
+        # g = p.grad  (stash)
+        wararra-dukurr-p @ 8 muru bana-@
+        wararra-dukurr-jilba bana-!
+
+        # m[i] = beta1*m[i] + (1-beta1)*g
+        kuku-beta1 bana-@
+        wararra-dukurr-jambul-wararra wararra-dukurr-wangkanil @ 8 * muru bana-@
+        bana-*
+        kuku-one bana-@ kuku-beta1 bana-@ bana-dumbarril
+        wararra-dukurr-jilba bana-@ bana-*
+        bana-muru
+        wararra-dukurr-jambul-wararra wararra-dukurr-wangkanil @ 8 * muru bana-!
+
+        # v[i] = beta2*v[i] + (1-beta2)*g^2
+        kuku-beta2 bana-@
+        wararra-dukurr-kulur-wararra wararra-dukurr-wangkanil @ 8 * muru bana-@
+        bana-*
+        kuku-one bana-@ kuku-beta2 bana-@ bana-dumbarril
+        wararra-dukurr-jilba bana-@ bana-kujil bana-*
+        bana-*
+        bana-muru
+        wararra-dukurr-kulur-wararra wararra-dukurr-wangkanil @ 8 * muru bana-!
+
+        # m_hat = m / (1 - beta1^t)     -> wararra-dukurr-tmp
+        wararra-dukurr-jambul-wararra wararra-dukurr-wangkanil @ 8 * muru bana-@
+        kuku-one bana-@ wararra-dukurr-b1-jirray bana-@ bana-dumbarril
+        bana-/
+        wararra-dukurr-tmp bana-!
+
+        # p.data -= lr * m_hat / (sqrt(v_hat) + eps)
+        wararra-dukurr-p @ bana-@                                 # FPU: [p.data]
+        wararra-dukurr-tmp bana-@                                 # [p.data, m_hat]
+        wararra-dukurr-kulur-wararra wararra-dukurr-wangkanil @ 8 * muru bana-@     # [..., v]
+        kuku-one bana-@ wararra-dukurr-b2-jirray bana-@ bana-dumbarril
+        bana-/                                                   # [p.data, m_hat, v_hat]
+        bana-sqrt
+        kuku-eps8 bana-@ bana-muru                               # [p.data, m_hat, denom]
+        bana-/                                                   # [p.data, m_hat/denom]
+        wararra-dukurr-mara bana-@ bana-*                        # [p.data, update]
+        bana-dumbarril                                            # [p.data - update]
+        wararra-dukurr-p @ bana-!
+
+        # zero grad
+        kuku-zero bana-@
+        wararra-dukurr-p @ 8 muru bana-!
+
+        wararra-dukurr-wangkanil @ 1 muru wararra-dukurr-wangkanil !
+        wararra-dukurr-p @ 48 muru wararra-dukurr-p !
+    kunbayn
+kunbayn
+
+
+# Compute lr_t, b1^t, b2^t for the current step.
+wararra-bss wararra-step-cur     4
+wararra-bss wararra-num-steps    4
+
+balkalaway dukurr-ngunnga
+    # (step num_steps --)
+    wararra-num-steps !
+    wararra-step-cur !
+
+    # lr_t = lr * (1 - step / num_steps)
+    kuku-lr bana-@
+    wararra-step-cur @ bana-from-int
+    wararra-num-steps @ bana-from-int
+    bana-/
+    kuku-one bana-@ bana-wundil bana-dumbarril     # 1 - step/num
+    bana-*
+    wararra-dukurr-mara bana-!
+
+    # b1^(t+1)   -- use repeated-mul with t+1 factors
+    kuku-one bana-@
+    0 wararra-tmp-i !
+    wararra-step-cur @ 1 muru wararra-tmp-n !
+    yabarrka
+        wararra-tmp-i @ wararra-tmp-n @ buban kari yala janay kunbayn
+        kuku-beta1 bana-@ bana-*
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    wararra-dukurr-b1-jirray bana-!
+
+    # b2^(t+1)
+    kuku-one bana-@
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-tmp-n @ buban kari yala janay kunbayn
+        kuku-beta2 bana-@ bana-*
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    wararra-dukurr-b2-jirray bana-!
+kunbayn
+
+
+# ============================================================================
+# Tokenizer and corpus.
+# We assume lowercase a..z names, one per line.
+#   uchars[i]     = 'a' + i  (implicit)
+#   BOS           = 26
+#   vocab_size    = 27
+# ============================================================================
+
+wararra-bss wararra-jina-narmba       256        # max 64 ints per sample (way more than block_size+2)
+wararra-bss wararra-doc-start    4          # offset of current line in doc-buf
+
+
+balkalaway jina-jirakal
+    # (line-start -- n)
+    # Reads wararra-doc-buf[line-start..] until newline or EOF.
+    # Fills wararra-jina-narmba with [BOS, c1..cn, BOS] and returns n (block_size) = n-jina-narmba - 1.
+    wararra-doc-start !
+    26 wararra-jina-narmba 0 4 * muru !            # jina-narmba[0] = BOS
+    1 wararra-tmp-i !                         # next token slot
+    wararra-doc-start @ wararra-tmp-j !
+    yabarrka
+        wararra-tmp-j @ wararra-doc-size @ buban kari yala janay kunbayn
+        wararra-doc-buf wararra-tmp-j @ muru c@
+        kujil 0x0A junkay yala wuljil janay kunbayn
+        # require 'a' (0x61) .. 'z' (0x7A) and map to 0..25
+        kujil 0x61 dumbarril
+        wararra-jina-narmba wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+        wararra-tmp-j @ 1 muru wararra-tmp-j !
+    kunbayn
+    # trailing BOS
+    26 wararra-jina-narmba wararra-tmp-i @ 4 * muru !
+    wararra-tmp-i @ 1 muru wararra-tmp-i !
+    wararra-tmp-j @ 1 muru wararra-tmp-j !           # skip the newline
+    wararra-doc-start !                              # advance start for caller if wanted
+    wararra-tmp-i @ 1 dumbarril                      # return n = len - 1
+kunbayn
+
+
+# ============================================================================
+# Full training loop
+# ============================================================================
+
+wararra-bss wararra-binalku-baral     4
+wararra-bss wararra-binalku-nyubun    4
+wararra-bss wararra-binalku-narmba-wangkanil  4
+
+balkalaway binalku-narmba
+    # (num-steps --)
+    wararra-binalku-narmba-wangkanil !
+    0 wararra-binalku-nyubun !
+    0 wararra-doc-start !
+    yabarrka
+        wararra-binalku-nyubun @ wararra-binalku-narmba-wangkanil @ buban kari yala janay kunbayn
+
+        # tokenize a line (looping back to the start of the corpus)
+        wararra-doc-start @ wararra-doc-size @ buban kari
+        yala 0 wararra-doc-start ! kunbayn
+
+        wararra-doc-start @ jina-jirakal wararra-binalku-n !
+
+        # cap at block_size=16
+        wararra-binalku-n @ 16 buban kari
+        yala 16 wararra-binalku-n ! kunbayn
+
+        # forward + backward
+        wararra-jina-narmba wararra-binalku-n @ binalku-nyubun
+        wararra-binalku-kunbayn @ kuku-wundil-warri
+
+        # Adam
+        wararra-binalku-nyubun @ wararra-binalku-narmba-wangkanil @ dukurr-ngunnga
+        dukurr-jirakal
+
+        # throw away the forward graph
+        kuku-bayan-jalngka
+
+        # progress
+        wararra-binalku-nyubun @ 10 kanbal 0 junkay
+        yala
+            2 "warri " 6 bama-balkal wuljil
+            wararra-binalku-nyubun @ wangkanil-balkal
+            2 " birru*1000 " 12 bama-balkal wuljil
+            wararra-binalku-kunbayn @ bana-@
+            kuku-thou bana-@ bana-*
+            bana-to-int wangkanil-balkal-jalngka-kuku
+        kunbayn
+
+        wararra-binalku-nyubun @ 1 muru wararra-binalku-nyubun !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Temperature sampling: generate one name
+# ============================================================================
+
+wararra-bss wararra-balkalaway-bana  216     # 27 doubles = 216 bytes
+wararra-bss wararra-balkalaway-jina     4
+wararra-bss wararra-balkalaway-r           8
+
+
+balkalaway balkalaway-nyubun
+    # (temperature-as-double-addr --)
+    # prints one generated name to stdout
+    wararra-tmp-ptr !                 # temp addr
+    0 wararra-miyil-wangkanil !
+    26 wararra-balkalaway-jina !          # start at BOS
+    0 wararra-tmp-i !                 # current position
+    yabarrka
+        wararra-tmp-i @ 16 buban kari yala janay kunbayn
+        wararra-balkalaway-jina @ wararra-tmp-i @ bayan-warri
+
+        # copy logits data, divide by temperature, jalngka, sample
+        # read each logit value
+        0 wararra-tmp-j !
+        yabarrka
+            wararra-tmp-j @ 27 buban kari yala janay kunbayn
+            wararra-balkal-jina wararra-tmp-j @ 4 * muru @ bana-@
+            wararra-tmp-ptr @ bana-@ bana-/
+            wararra-balkalaway-bana wararra-tmp-j @ 8 * muru bana-!
+            wararra-tmp-j @ 1 muru wararra-tmp-j !
+        kunbayn
+
+        # jalngka over wararra-balkalaway-bana (raw doubles, not Values)
+        # find max
+        wararra-balkalaway-bana 0 8 * muru bana-@
+        wararra-jalngka-dukul bana-!
+        1 wararra-tmp-j !
+        yabarrka
+            wararra-tmp-j @ 27 buban kari yala janay kunbayn
+            wararra-balkalaway-bana wararra-tmp-j @ 8 * muru bana-@
+            wararra-jalngka-dukul bana-@
+            bana-jirray
+            yala
+                wararra-balkalaway-bana wararra-tmp-j @ 8 * muru bana-@
+                wararra-jalngka-dukul bana-!
+            kunbayn
+            wararra-tmp-j @ 1 muru wararra-tmp-j !
+        kunbayn
+        # exp(x - max) in place, accumulate sum on FPU
+        kuku-zero bana-@                             # running sum
+        0 wararra-tmp-j !
+        yabarrka
+            wararra-tmp-j @ 27 buban kari yala janay kunbayn
+            wararra-balkalaway-bana wararra-tmp-j @ 8 * muru bana-@
+            wararra-jalngka-dukul bana-@ bana-dumbarril
+            bana-exp
+            bana-kujil
+            wararra-balkalaway-bana wararra-tmp-j @ 8 * muru bana-!
+            bana-muru
+            wararra-tmp-j @ 1 muru wararra-tmp-j !
+        kunbayn
+        # FPU: [sum]  -- pick r in [0, sum)
+        bana-kujil
+        wumba-nyubun bana-*                        # FPU: [sum, r]
+        # walk cumulative
+        bana-wundil bana-wuljil                      # drop sum, keep r
+        # r now on FPU. Walk.
+        26 wararra-balkalaway-jina !                     # default: BOS (shouldn't happen)
+        0 wararra-tmp-j !
+        yabarrka
+            wararra-tmp-j @ 27 buban kari yala janay kunbayn
+            bana-kujil
+            wararra-balkalaway-bana wararra-tmp-j @ 8 * muru bana-@
+            bana-dumbarril                           # r - w[j]
+            kuku-zero bana-@ bana-buban               # r < 0?
+            yala
+                bana-wuljil
+                wararra-tmp-j @ wararra-balkalaway-jina !
+                janay
+            kunbayn
+            wararra-tmp-j @ 1 muru wararra-tmp-j !
+        kunbayn
+        bana-wuljil                                   # drop whatever's on FPU (r-remainder)
+
+        wararra-balkalaway-jina @ 26 junkay yala janay kunbayn
+
+        # print character
+        wararra-balkalaway-jina @ 0x61 muru wararra-wangkanil-wararra c!
+        1 wararra-wangkanil-wararra 1 bama-balkal wuljil
+
+        # pool reset between jina-narmba to save memory
+        kuku-bayan-jalngka
+
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    1 wararra-jalngka-kuku 1 bama-balkal wuljil
+kunbayn
+
+
+# ============================================================================
+# Model save/load
+# ============================================================================
+
+wararra wararra-model-path "/tmp/dambun.kuku-gpt-model" 0 nandal
+wararra-bss wararra-save-fd    4
+
+
+balkalaway bayan-balkal
+    wararra-model-path 0x241 bama-ngunnga wararra-save-fd !
+    wararra-save-fd @ 0 jirray kari yala 1 bama-kunbayn kunbayn
+    wararra-save-fd @ wararra-params-base @ 201216 bama-balkal wuljil
+    wararra-save-fd @ wararra-dukurr-jambul-wararra 33536 bama-balkal wuljil
+    wararra-save-fd @ wararra-dukurr-kulur-wararra 33536 bama-balkal wuljil
+    wararra-save-fd @ bama-nandal wuljil
+kunbayn
+
+balkalaway bayan-mana
+    wararra-model-path 0 bama-ngunnga wararra-save-fd !
+    wararra-save-fd @ 0 jirray kari
+    yala
+        2 "bayan kari -- binalku jakalbaku\n" 32 bama-balkal wuljil
+        1 bama-kunbayn
+    kunbayn
+    wararra-save-fd @ wararra-params-base @ 201216 bama-babaji wuljil
+    wararra-save-fd @ wararra-dukurr-jambul-wararra 33536 bama-babaji wuljil
+    wararra-save-fd @ wararra-dukurr-kulur-wararra 33536 bama-babaji wuljil
+    wararra-save-fd @ bama-nandal wuljil
+kunbayn
+
+
+# ============================================================================
+# Top-level commands
+# ============================================================================
+
+wararra-bss wararra-temp  8
+
+balkalaway warri-binalku
+    # train on argv[2], save model.
+    wumba-ngunnga
+    bayan-ngunnga
+    2 4 * bama-wararra muru @ bana-babaji
+    2 "bana mana, binalku jakalbaku...\n" 33 bama-balkal wuljil
+    100 binalku-narmba
+    bayan-balkal
+    2 "bayan balkal kunbayn.\n" 22 bama-balkal wuljil
+kunbayn
+
+balkalaway warri-balkalaway
+    wumba-ngunnga
+    bayan-ngunnga                 # re-allocate structure; data then overwritten
+    bayan-mana
+    # temperature = 0.5
+    kuku-half bana-@ wararra-temp bana-!
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 20 buban kari yala janay kunbayn
+        wararra-temp balkalaway-nyubun
+        kuku-bayan-jalngka
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Main (CLI dispatch)
+# ============================================================================
+
+wararra wararra-cmd-ngana-warri "ngana-warri" 0 nandal
+wararra wararra-cmd-binalku     "binalku"     0 nandal
+wararra wararra-cmd-balkalaway  "balkalaway"  0 nandal
+wararra wararra-err-usage
+    "warri:  dambun ngana-warri       jilba-warri\n"
+    "        dambun binalku KUKU       binalku KUKU\n"
+    "        dambun balkalaway        balkalaway jambul-kulur kuku\n"
+    0 nandal
+
+
+balkalaway jakalbaku-warri
+    bama-wangkanil 2 buban
+    yala 2 wararra-err-usage kuku-balkal 1 bama-kunbayn kunbayn
+
+    1 4 * bama-wararra muru @ wararra-cmd-ngana-warri kuku-junkay
+    yala warri-ngana 0 bama-kunbayn kunbayn
+
+    1 4 * bama-wararra muru @ wararra-cmd-binalku kuku-junkay
+    yala
+        bama-wangkanil 3 buban
+        yala 2 wararra-err-usage kuku-balkal 1 bama-kunbayn kunbayn
+        warri-binalku
+        0 bama-kunbayn
+    kunbayn
+
+    1 4 * bama-wararra muru @ wararra-cmd-balkalaway kuku-junkay
+    yala warri-balkalaway 0 bama-kunbayn kunbayn
+
+    2 wararra-err-usage kuku-balkal
+    1 bama-kunbayn
+kunbayn
