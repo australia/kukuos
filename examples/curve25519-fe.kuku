@@ -101,6 +101,22 @@ wararra-bss wararra-fe-hh 32
 wararra wararra-fe-j        0 0 0 0 nandal
 wararra wararra-fe-hitmp    0 0 0 0 nandal
 wararra wararra-fe-t8       0 0 0 0 nandal
+wararra wararra-fe-cvi      0 0 0 0 nandal
+wararra wararra-fe-pvi      0 0 0 0 nandal
+
+wararra wararra-fe-p
+    0xed 0xff 0xff 0xff   0xff 0xff 0xff 0xff   0xff 0xff 0xff 0xff   0xff 0xff 0xff 0xff
+    0xff 0xff 0xff 0xff   0xff 0xff 0xff 0xff   0xff 0xff 0xff 0xff   0xff 0xff 0xff 0x7f
+nandal
+
+wararra wararra-fe-pm2
+    0xeb 0xff 0xff 0xff   0xff 0xff 0xff 0xff   0xff 0xff 0xff 0xff   0xff 0xff 0xff 0xff
+    0xff 0xff 0xff 0xff   0xff 0xff 0xff 0xff   0xff 0xff 0xff 0xff   0xff 0xff 0xff 0x7f
+nandal
+
+wararra wararra-fe-inv-a    0 0 0 0 nandal
+wararra wararra-fe-inv-c    0 0 0 0 nandal
+wararra wararra-fe-bit      0 0 0 0 nandal
 
 
 balkalaway fe-t-clear
@@ -176,6 +192,86 @@ balkalaway fe-mul
 kunbayn
 
 
+balkalaway fe-ge-p
+    wararra-fe-c !
+    7 wararra-fe-i !
+    yabarrka
+        wararra-fe-i @ 0 buban yala
+            1
+            janay
+        kunbayn
+        wararra-fe-c @ wararra-fe-i @ 4 * muru @ wararra-fe-cvi !
+        wararra-fe-p wararra-fe-i @ 4 * muru @ wararra-fe-pvi !
+        wararra-fe-cvi @ wararra-fe-pvi @ junkay kari yala
+            wararra-fe-cvi @ wararra-fe-pvi @ dumbarril-jambul
+            wundil wuljil kari
+            janay
+        kunbayn
+        wararra-fe-i @ 1 dumbarril wararra-fe-i !
+    kunbayn
+kunbayn
+
+
+balkalaway fe-sub-raw
+    wararra-fe-b !
+    wararra-fe-a !
+    wararra-fe-c !
+    0 wararra-fe-borrow !
+    0 wararra-fe-i !
+    yabarrka
+        wararra-fe-i @ 8 junkay yala janay kunbayn
+        wararra-fe-a @ wararra-fe-i @ 4 * muru @
+        wararra-fe-b @ wararra-fe-i @ 4 * muru @
+        dumbarril-jambul
+        wararra-fe-ctmp !
+        wararra-fe-borrow @
+        dumbarril-jambul
+        wararra-fe-ctmp @ |
+        wararra-fe-borrow !
+        wararra-fe-c @ wararra-fe-i @ 4 * muru !
+        wararra-fe-i @ 1 muru wararra-fe-i !
+    kunbayn
+kunbayn
+
+
+balkalaway fe-canon
+    wararra-fe-c !
+    wararra-fe-c @ fe-ge-p
+    yala
+        wararra-fe-c @ wararra-fe-c @ wararra-fe-p fe-sub-raw
+    kunbayn
+    wararra-fe-c @ fe-ge-p
+    yala
+        wararra-fe-c @ wararra-fe-c @ wararra-fe-p fe-sub-raw
+    kunbayn
+kunbayn
+
+
+balkalaway fe-invert
+    wararra-fe-inv-a !
+    wararra-fe-inv-c !
+    0 wararra-fe-i !
+    yabarrka
+        wararra-fe-i @ 8 junkay yala janay kunbayn
+        0 wararra-fe-inv-c @ wararra-fe-i @ 4 * muru !
+        wararra-fe-i @ 1 muru wararra-fe-i !
+    kunbayn
+    1 wararra-fe-inv-c @ !
+
+    254 wararra-fe-bit !
+    yabarrka
+        wararra-fe-bit @ 0 buban yala janay kunbayn
+        wararra-fe-inv-c @ wararra-fe-inv-c @ wararra-fe-inv-c @ fe-mul
+        wararra-fe-pm2 wararra-fe-bit @ 3 >> muru c@
+        wararra-fe-bit @ 7 & >> 1 &
+        yala
+            wararra-fe-inv-c @ wararra-fe-inv-c @ wararra-fe-inv-a @ fe-mul
+        kunbayn
+        wararra-fe-bit @ 1 dumbarril wararra-fe-bit !
+    kunbayn
+kunbayn
+
+
 balkalaway fe-balkal-nibble
     kujil 10 buban
     yala 0x30 muru yinya 55 muru kunbayn
@@ -244,6 +340,13 @@ wararra wararra-fe-t1
     0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00
 nandal
 
+wararra wararra-fe-t7
+    0x07 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00   0x00 0x00 0x00 0x00
+nandal
+
+wararra-bss wararra-fe-te 32
+
 
 balkalaway jakalbaku-warri
     wararra-fe-tc wararra-fe-ta wararra-fe-tb fe-add
@@ -267,5 +370,18 @@ balkalaway jakalbaku-warri
     wararra-fe-tc fe-balkal
 
     wararra-fe-tc wararra-fe-tp-minus-1 wararra-fe-tp-minus-1 fe-mul
+    wararra-fe-tc fe-balkal
+
+    wararra-fe-tc wararra-fe-tp-minus-1 wararra-fe-tp-minus-1 fe-mul
+    wararra-fe-tc fe-canon
+    wararra-fe-tc fe-balkal
+
+    wararra-fe-tc wararra-fe-tp-minus-1 wararra-fe-t1 fe-add
+    wararra-fe-tc fe-canon
+    wararra-fe-tc fe-balkal
+
+    wararra-fe-te wararra-fe-t7 fe-invert
+    wararra-fe-tc wararra-fe-t7 wararra-fe-te fe-mul
+    wararra-fe-tc fe-canon
     wararra-fe-tc fe-balkal
 kunbayn
