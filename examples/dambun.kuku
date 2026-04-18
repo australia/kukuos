@@ -1001,8 +1001,8 @@ wararra-bss wararra-jalngka-dukul     8
 wararra-bss wararra-jalngka-dukul-v   4
 wararra-bss wararra-jalngka-muru     4
 
-balkalaway jalngka
-    # (balkal-jina n --)  in place.
+balkalaway balkal-jurra
+    # (balkal-jina n --)  in place.   ("jurra" = scatter/spread, our softmax)
     wararra-jalngka-n !
     wararra-jalngka-logits !
 
@@ -1135,7 +1135,7 @@ balkalaway miyil
         kunbayn
 
         # jalngka in place
-        wararra-attn-balkal-jina wararra-miyil-T @ jalngka
+        wararra-attn-balkal-jina wararra-miyil-T @ balkal-jurra
 
         # head_out[j] = sum_t weights[t] * v_h[t][j]   for j in [0, head_dim)
         0 wararra-miyil-j !
@@ -1311,7 +1311,7 @@ balkalaway binalku-nyubun
         wararra-binalku-p @ wararra-binalku-k @ 1 muru 4 * muru @ wararra-binalku-jinya !
 
         wararra-binalku-jina @ wararra-binalku-k @ bayan-warri
-        wararra-balkal-jina 27 jalngka
+        wararra-balkal-jina 27 balkal-jurra
         # loss = -log(probs[target])
         wararra-balkal-jina wararra-binalku-jinya @ 4 * muru @
         kuku-mulkurr
@@ -1564,18 +1564,20 @@ kunbayn
 wararra-bss wararra-balkalaway-bana  216     # 27 doubles = 216 bytes
 wararra-bss wararra-balkalaway-jina     4
 wararra-bss wararra-balkalaway-r           8
+wararra-bss wararra-balkalaway-pos     4     # position counter (can't use tmp-i, bayan-warri clobbers it)
+wararra-bss wararra-balkalaway-temp    4     # pointer to temperature (same reason)
 
 
 balkalaway balkalaway-nyubun
     # (temperature-as-double-addr --)
     # prints one generated name to stdout
-    wararra-tmp-ptr !                 # temp addr
+    wararra-balkalaway-temp !         # temp addr (dedicated; bayan-warri clobbers tmp-ptr)
     0 wararra-miyil-wangkanil !
     26 wararra-balkalaway-jina !          # start at BOS
-    0 wararra-tmp-i !                 # current position
+    0 wararra-balkalaway-pos !        # current position
     yabarrka
-        wararra-tmp-i @ 16 buban kari yala janay kunbayn
-        wararra-balkalaway-jina @ wararra-tmp-i @ bayan-warri
+        wararra-balkalaway-pos @ 16 buban kari yala janay kunbayn
+        wararra-balkalaway-jina @ wararra-balkalaway-pos @ bayan-warri
 
         # copy logits data, divide by temperature, jalngka, sample
         # read each logit value
@@ -1583,7 +1585,7 @@ balkalaway balkalaway-nyubun
         yabarrka
             wararra-tmp-j @ 27 buban kari yala janay kunbayn
             wararra-balkal-jina wararra-tmp-j @ 4 * muru @ bana-@
-            wararra-tmp-ptr @ bana-@ bana-/
+            wararra-balkalaway-temp @ bana-@ bana-/
             wararra-balkalaway-bana wararra-tmp-j @ 8 * muru bana-!
             wararra-tmp-j @ 1 muru wararra-tmp-j !
         kunbayn
@@ -1618,27 +1620,23 @@ balkalaway balkalaway-nyubun
             wararra-tmp-j @ 1 muru wararra-tmp-j !
         kunbayn
         # FPU: [sum]  -- pick r in [0, sum)
-        bana-kujil
-        wumba-nyubun bana-*                        # FPU: [sum, r]
-        # walk cumulative
-        bana-wundil bana-wuljil                      # drop sum, keep r
-        # r now on FPU. Walk.
+        wumba-nyubun bana-*                        # FPU: [sum * r01] = r
+        # walk cumulative: subtract w[j] from r each iter; first j making r<0 wins.
         26 wararra-balkalaway-jina !                     # default: BOS (shouldn't happen)
         0 wararra-tmp-j !
         yabarrka
             wararra-tmp-j @ 27 buban kari yala janay kunbayn
-            bana-kujil
             wararra-balkalaway-bana wararra-tmp-j @ 8 * muru bana-@
-            bana-dumbarril                           # r - w[j]
-            kuku-zero bana-@ bana-buban               # r < 0?
+            bana-dumbarril                           # FPU: [r - w[j]] (r decremented)
+            bana-kujil                               # FPU: [r, r]
+            kuku-zero bana-@ bana-buban              # FPU: [r], bool on data stack
             yala
-                bana-wuljil
                 wararra-tmp-j @ wararra-balkalaway-jina !
                 janay
             kunbayn
             wararra-tmp-j @ 1 muru wararra-tmp-j !
         kunbayn
-        bana-wuljil                                   # drop whatever's on FPU (r-remainder)
+        bana-wuljil                                   # drop leftover r from FPU
 
         wararra-balkalaway-jina @ 26 junkay yala janay kunbayn
 
@@ -1649,7 +1647,7 @@ balkalaway balkalaway-nyubun
         # pool reset between jina-narmba to save memory
         kuku-bayan-jalngka
 
-        wararra-tmp-i @ 1 muru wararra-tmp-i !
+        wararra-balkalaway-pos @ 1 muru wararra-balkalaway-pos !
     kunbayn
     1 wararra-jalngka-kuku 1 bama-balkal wuljil
 kunbayn
@@ -1703,18 +1701,20 @@ balkalaway warri-binalku
     2 "bayan balkal kunbayn.\n" 22 bama-balkal wuljil
 kunbayn
 
+wararra-bss wararra-balkalaway-iter  4
+
 balkalaway warri-balkalaway
     wumba-ngunnga
     bayan-ngunnga                 # re-allocate structure; data then overwritten
     bayan-mana
     # temperature = 0.5
     kuku-half bana-@ wararra-temp bana-!
-    0 wararra-tmp-i !
+    0 wararra-balkalaway-iter !
     yabarrka
-        wararra-tmp-i @ 20 buban kari yala janay kunbayn
+        wararra-balkalaway-iter @ 20 buban kari yala janay kunbayn
         wararra-temp balkalaway-nyubun
         kuku-bayan-jalngka
-        wararra-tmp-i @ 1 muru wararra-tmp-i !
+        wararra-balkalaway-iter @ 1 muru wararra-balkalaway-iter !
     kunbayn
 kunbayn
 
