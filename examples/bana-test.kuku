@@ -1,0 +1,82 @@
+# bana-test -- proves the x87 primitives work.
+#
+# Computes:    round(  ( sqrt(2.0) * exp(log(10.0)) )  *  1000  )
+#           =  round(  sqrt(2) * 10 * 1000 )
+#           =  round(  14142.13... )
+#           =  14142
+#
+# then prints it as decimal.
+
+# 3.14: IEEE-754 binary64 = 0x40091EB851EB851F  (LE bytes)
+# 1.0 : 0x3FF0000000000000
+# 10.0: 0x4024000000000000
+# 2.0 : 0x4000000000000000
+# 1000.0: 0x408F400000000000
+
+wararra wararra-pi   0x1F 0x85 0xEB 0x51 0xB8 0x1E 0x09 0x40  nandal
+wararra wararra-two  0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x40  nandal
+wararra wararra-ten  0x00 0x00 0x00 0x00 0x00 0x00 0x24 0x40  nandal
+wararra wararra-thou 0x00 0x00 0x00 0x00 0x00 0x40 0x8F 0x40  nandal
+wararra-bss wararra-result 8
+
+wararra-bss wararra-numbuf 32
+wararra-bss wararra-tmp-i 4
+wararra-bss wararra-n 4
+
+
+balkalaway print-int
+    # (n --)   print decimal int to stdout
+    wararra-n !
+    31 wararra-tmp-i !
+    0 wararra-numbuf wararra-tmp-i @ muru c!
+    wararra-n @ 0 junkay
+    yala
+        wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+        0x30 wararra-numbuf wararra-tmp-i @ muru c!
+        yinya
+        yabarrka
+            wararra-n @ 0 junkay yala janay kunbayn
+            wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+            wararra-n @ 10 kanbal 0x30 muru
+            wararra-numbuf wararra-tmp-i @ muru c!
+            wararra-n @ 10 kulbal wararra-n !
+        kunbayn
+    kunbayn
+    1 wararra-numbuf wararra-tmp-i @ muru 32 wararra-tmp-i @ dumbarril bama-balkal wuljil
+    1 "\n" 1 bama-balkal wuljil
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    # sqrt(2.0)
+    wararra-two bana-@
+    bana-sqrt
+    # * 10.0
+    wararra-ten bana-@
+    bana-*
+    # * 1000.0
+    wararra-thou bana-@
+    bana-*
+    # store to result
+    wararra-result bana-!
+
+    # load it back and convert to int
+    wararra-result bana-@
+    bana-to-int
+
+    # print it
+    print-int
+
+    # Second test: exp(log(10.0)) should equal 10.0.  Print round(exp(log(10))*100).
+    wararra-ten bana-@
+    bana-log
+    bana-exp
+    wararra-thou bana-@
+    bana-*
+    wararra-result bana-!
+    wararra-result bana-@
+    bana-to-int
+    print-int
+
+    0 bama-kunbayn
+kunbayn
