@@ -9,11 +9,7 @@ KukuOS is a vertically integrated computing stack in Kuku Yalanji:
 - crypto primitives (SHA-256/512, ChaCha20, Poly1305, Curve25519, Ed25519)
 - a character-level Transformer with autograd and Adam in `examples/dambun.kuku`
 
-The interesting part is not just "an OS in a niche language". The same small
-language spans naming, syntax, compilation, kernel code, host-side tools,
-cryptography, and ML.
-
-For a deeper technical overview aimed at PL/systems/crypto/ML readers, see
+A deeper technical overview is in
 [`docs/research-brief.md`](docs/research-brief.md).
 
 Every identifier is a Kuku Yalanji word; the glosses are meaningful
@@ -23,19 +19,6 @@ ear — is the keyboard).
 No C. No libc. No assembler. No linker. The compiler emits x86 bytes
 directly into an ELF, with a `--bama` flag to switch between a multiboot
 kernel and a 32-bit Linux executable.
-
-## Why It Is Interesting
-
-- The compiler is self-hosting: `kuku-bama/ngunnga.kuku` compiles to the
-  same `kuku-bama/ngunnga` binary that can rebuild it.
-- The compiler emits x86 bytes directly into ELF output. There is no
-  assembler, linker, or libc in the active codebase.
-- The same language targets both bare metal and hosted Linux processes.
-- The examples are not toy programs: they include standards-tested crypto,
-  a Linux shell, and a full training-and-sampling path for a small
-  Transformer.
-- `examples/paper.kuku` emits a LaTeX paper about `dambun.kuku`, so the
-  language is used both to build the system and to describe it.
 
 ## Try it
 
