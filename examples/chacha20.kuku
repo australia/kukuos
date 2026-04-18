@@ -1,0 +1,170 @@
+# chacha20
+
+
+wararra-bss wararra-cc-state   64
+wararra-bss wararra-cc-orig    64
+wararra-bss wararra-cc-keystream 64
+
+wararra wararra-cc-ai   0 0 0 0 nandal
+wararra wararra-cc-bi   0 0 0 0 nandal
+wararra wararra-cc-ci   0 0 0 0 nandal
+wararra wararra-cc-di   0 0 0 0 nandal
+wararra wararra-cc-a    0 0 0 0 nandal
+wararra wararra-cc-b    0 0 0 0 nandal
+wararra wararra-cc-c    0 0 0 0 nandal
+wararra wararra-cc-d    0 0 0 0 nandal
+wararra wararra-cc-x    0 0 0 0 nandal
+wararra wararra-cc-n    0 0 0 0 nandal
+wararra wararra-cc-i    0 0 0 0 nandal
+wararra wararra-cc-onechar 0 0 0 0 nandal
+wararra wararra-cc-pr   0 0 0 0 nandal
+
+
+balkalaway cc-rotl
+    wararra-cc-n !
+    wararra-cc-x !
+    wararra-cc-x @ wararra-cc-n @ <<
+    wararra-cc-x @ 32 wararra-cc-n @ dumbarril >>
+    |
+kunbayn
+
+
+balkalaway cc-qr
+    wararra-cc-di !
+    wararra-cc-ci !
+    wararra-cc-bi !
+    wararra-cc-ai !
+    wararra-cc-state wararra-cc-ai @ 4 * muru @ wararra-cc-a !
+    wararra-cc-state wararra-cc-bi @ 4 * muru @ wararra-cc-b !
+    wararra-cc-state wararra-cc-ci @ 4 * muru @ wararra-cc-c !
+    wararra-cc-state wararra-cc-di @ 4 * muru @ wararra-cc-d !
+
+    wararra-cc-a @ wararra-cc-b @ muru wararra-cc-a !
+    wararra-cc-d @ wararra-cc-a @ ^ wararra-cc-d !
+    wararra-cc-d @ 16 cc-rotl wararra-cc-d !
+
+    wararra-cc-c @ wararra-cc-d @ muru wararra-cc-c !
+    wararra-cc-b @ wararra-cc-c @ ^ wararra-cc-b !
+    wararra-cc-b @ 12 cc-rotl wararra-cc-b !
+
+    wararra-cc-a @ wararra-cc-b @ muru wararra-cc-a !
+    wararra-cc-d @ wararra-cc-a @ ^ wararra-cc-d !
+    wararra-cc-d @ 8 cc-rotl wararra-cc-d !
+
+    wararra-cc-c @ wararra-cc-d @ muru wararra-cc-c !
+    wararra-cc-b @ wararra-cc-c @ ^ wararra-cc-b !
+    wararra-cc-b @ 7 cc-rotl wararra-cc-b !
+
+    wararra-cc-a @ wararra-cc-state wararra-cc-ai @ 4 * muru !
+    wararra-cc-b @ wararra-cc-state wararra-cc-bi @ 4 * muru !
+    wararra-cc-c @ wararra-cc-state wararra-cc-ci @ 4 * muru !
+    wararra-cc-d @ wararra-cc-state wararra-cc-di @ 4 * muru !
+kunbayn
+
+
+balkalaway cc-block
+    0 wararra-cc-i !
+    yabarrka
+        wararra-cc-i @ 16 junkay yala janay kunbayn
+        wararra-cc-state wararra-cc-i @ 4 * muru @
+        wararra-cc-orig wararra-cc-i @ 4 * muru !
+        wararra-cc-i @ 1 muru wararra-cc-i !
+    kunbayn
+
+    0 wararra-cc-i !
+    yabarrka
+        wararra-cc-i @ 10 junkay yala janay kunbayn
+        0 4 8  12 cc-qr
+        1 5 9  13 cc-qr
+        2 6 10 14 cc-qr
+        3 7 11 15 cc-qr
+        0 5 10 15 cc-qr
+        1 6 11 12 cc-qr
+        2 7 8  13 cc-qr
+        3 4 9  14 cc-qr
+        wararra-cc-i @ 1 muru wararra-cc-i !
+    kunbayn
+
+    0 wararra-cc-i !
+    yabarrka
+        wararra-cc-i @ 16 junkay yala janay kunbayn
+        wararra-cc-state wararra-cc-i @ 4 * muru @
+        wararra-cc-orig wararra-cc-i @ 4 * muru @
+        muru
+        wararra-cc-keystream wararra-cc-i @ 4 * muru !
+        wararra-cc-i @ 1 muru wararra-cc-i !
+    kunbayn
+kunbayn
+
+
+wararra wararra-cc-test-key
+    0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09 0x0a 0x0b 0x0c 0x0d 0x0e 0x0f
+    0x10 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 0x1f
+nandal
+
+
+wararra wararra-cc-test-nonce
+    0x00 0x00 0x00 0x09 0x00 0x00 0x00 0x4a 0x00 0x00 0x00 0x00
+nandal
+
+
+balkalaway cc-nibble
+    kujil 10 buban yala 0x30 muru yinya 55 muru kunbayn
+    wararra-cc-onechar c!
+    1 wararra-cc-onechar 1 bama-balkal wuljil
+kunbayn
+
+
+balkalaway cc-byte
+    kujil 4 >> 0xf & cc-nibble
+    0xf & cc-nibble
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    0x65 wararra-cc-state       0 muru c!
+    0x78 wararra-cc-state       1 muru c!
+    0x70 wararra-cc-state       2 muru c!
+    0x61 wararra-cc-state       3 muru c!
+    0x6e wararra-cc-state       4 muru c!
+    0x64 wararra-cc-state       5 muru c!
+    0x20 wararra-cc-state       6 muru c!
+    0x33 wararra-cc-state       7 muru c!
+    0x32 wararra-cc-state       8 muru c!
+    0x2d wararra-cc-state       9 muru c!
+    0x62 wararra-cc-state      10 muru c!
+    0x79 wararra-cc-state      11 muru c!
+    0x74 wararra-cc-state      12 muru c!
+    0x65 wararra-cc-state      13 muru c!
+    0x20 wararra-cc-state      14 muru c!
+    0x6b wararra-cc-state      15 muru c!
+
+    0 wararra-cc-i !
+    yabarrka
+        wararra-cc-i @ 32 junkay yala janay kunbayn
+        wararra-cc-test-key wararra-cc-i @ muru c@
+        wararra-cc-state 16 muru wararra-cc-i @ muru c!
+        wararra-cc-i @ 1 muru wararra-cc-i !
+    kunbayn
+
+    1 wararra-cc-state 48 muru !
+
+    0 wararra-cc-i !
+    yabarrka
+        wararra-cc-i @ 12 junkay yala janay kunbayn
+        wararra-cc-test-nonce wararra-cc-i @ muru c@
+        wararra-cc-state 52 muru wararra-cc-i @ muru c!
+        wararra-cc-i @ 1 muru wararra-cc-i !
+    kunbayn
+
+    cc-block
+
+    0 wararra-cc-i !
+    yabarrka
+        wararra-cc-i @ 64 junkay yala janay kunbayn
+        wararra-cc-keystream wararra-cc-i @ muru c@ cc-byte
+        wararra-cc-i @ 1 muru wararra-cc-i !
+    kunbayn
+    0x0a wararra-cc-onechar c!
+    1 wararra-cc-onechar 1 bama-balkal wuljil
+kunbayn
