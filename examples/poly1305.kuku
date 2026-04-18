@@ -1,0 +1,244 @@
+# poly1305
+
+
+wararra-bss wararra-p-r         20
+wararra-bss wararra-p-s         16
+wararra-bss wararra-p-acc       20
+wararra-bss wararra-p-n         20
+wararra-bss wararra-p-col-lo    40
+wararra-bss wararra-p-col-hi    40
+wararra-bss wararra-p-chunk     16
+
+
+wararra wararra-p-keyaddr   0 0 0 0 nandal
+wararra wararra-p-msgaddr   0 0 0 0 nandal
+wararra wararra-p-msglen    0 0 0 0 nandal
+wararra wararra-p-tagaddr   0 0 0 0 nandal
+wararra wararra-p-i         0 0 0 0 nandal
+wararra wararra-p-j         0 0 0 0 nandal
+wararra wararra-p-k         0 0 0 0 nandal
+wararra wararra-p-al        0 0 0 0 nandal
+wararra wararra-p-ah        0 0 0 0 nandal
+wararra wararra-p-bl        0 0 0 0 nandal
+wararra wararra-p-bh        0 0 0 0 nandal
+wararra wararra-p-cl        0 0 0 0 nandal
+wararra wararra-p-ch        0 0 0 0 nandal
+wararra wararra-p-tmp       0 0 0 0 nandal
+wararra wararra-p-carry     0 0 0 0 nandal
+wararra wararra-p-onechar   0 0 0 0 nandal
+
+
+balkalaway poly-add64
+    wararra-p-bh !
+    wararra-p-bl !
+    wararra-p-ah !
+    wararra-p-al !
+    wararra-p-al @ wararra-p-bl @ muru-jambul
+    wararra-p-ah @ wararra-p-bh @ muru muru
+kunbayn
+
+
+balkalaway poly-bytes-to-r
+    wararra-p-keyaddr !
+
+    wararra-p-keyaddr @ 0  muru c@
+    wararra-p-keyaddr @ 1  muru c@ 8 <<
+    wararra-p-keyaddr @ 2  muru c@ 16 <<
+    wararra-p-keyaddr @ 3  muru c@ 0x03 & 24 <<
+    | | |
+    wararra-p-r 0 muru !
+
+    wararra-p-keyaddr @ 3  muru c@ 0xfc & 2 >>
+    wararra-p-keyaddr @ 4  muru c@ 0xfc & 6 <<
+    wararra-p-keyaddr @ 5  muru c@ 14 <<
+    wararra-p-keyaddr @ 6  muru c@ 0x0f & 22 <<
+    | | |
+    wararra-p-r 4 muru !
+
+    wararra-p-keyaddr @ 6  muru c@ 0xf0 & 4 >>
+    wararra-p-keyaddr @ 7  muru c@ 4 <<
+    wararra-p-keyaddr @ 8  muru c@ 0xfc & 12 <<
+    wararra-p-keyaddr @ 9  muru c@ 0x3f & 20 <<
+    | | |
+    wararra-p-r 8 muru !
+
+    wararra-p-keyaddr @ 9  muru c@ 0xc0 & 6 >>
+    wararra-p-keyaddr @ 10 muru c@ 2 <<
+    wararra-p-keyaddr @ 11 muru c@ 10 <<
+    wararra-p-keyaddr @ 12 muru c@ 0xfc & 18 <<
+    | | |
+    wararra-p-r 12 muru !
+
+    wararra-p-keyaddr @ 13 muru c@
+    wararra-p-keyaddr @ 14 muru c@ 8 <<
+    wararra-p-keyaddr @ 15 muru c@ 0x0f & 16 <<
+    | |
+    wararra-p-r 16 muru !
+kunbayn
+
+
+balkalaway poly-chunk-to-n
+    wararra-p-msgaddr !
+
+    wararra-p-msgaddr @ 0  muru c@
+    wararra-p-msgaddr @ 1  muru c@ 8 <<
+    wararra-p-msgaddr @ 2  muru c@ 16 <<
+    wararra-p-msgaddr @ 3  muru c@ 0x03 & 24 <<
+    | | |
+    wararra-p-n 0 muru !
+
+    wararra-p-msgaddr @ 3  muru c@ 2 >>
+    wararra-p-msgaddr @ 4  muru c@ 6 <<
+    wararra-p-msgaddr @ 5  muru c@ 14 <<
+    wararra-p-msgaddr @ 6  muru c@ 0x0f & 22 <<
+    | | |
+    wararra-p-n 4 muru !
+
+    wararra-p-msgaddr @ 6  muru c@ 4 >>
+    wararra-p-msgaddr @ 7  muru c@ 4 <<
+    wararra-p-msgaddr @ 8  muru c@ 12 <<
+    wararra-p-msgaddr @ 9  muru c@ 0x3f & 20 <<
+    | | |
+    wararra-p-n 8 muru !
+
+    wararra-p-msgaddr @ 9  muru c@ 6 >>
+    wararra-p-msgaddr @ 10 muru c@ 2 <<
+    wararra-p-msgaddr @ 11 muru c@ 10 <<
+    wararra-p-msgaddr @ 12 muru c@ 18 <<
+    | | |
+    wararra-p-n 12 muru !
+
+    wararra-p-msgaddr @ 13 muru c@
+    wararra-p-msgaddr @ 14 muru c@ 8 <<
+    wararra-p-msgaddr @ 15 muru c@ 16 <<
+    0x01000000
+    | | |
+    wararra-p-n 16 muru !
+kunbayn
+
+
+balkalaway poly-acc-plus-n
+    0 wararra-p-i !
+    0 wararra-p-carry !
+    yabarrka
+        wararra-p-i @ 5 junkay yala janay kunbayn
+        wararra-p-acc wararra-p-i @ 4 * muru @
+        wararra-p-n   wararra-p-i @ 4 * muru @
+        muru
+        wararra-p-carry @ muru
+        kujil 26 >> wararra-p-carry !
+        0x3ffffff &
+        wararra-p-acc wararra-p-i @ 4 * muru !
+        wararra-p-i @ 1 muru wararra-p-i !
+    kunbayn
+    wararra-p-acc @ wararra-p-carry @ muru wararra-p-acc !
+kunbayn
+
+
+balkalaway poly-col-add64-prod
+    wararra-p-ah !
+    wararra-p-al !
+    wararra-p-k !
+    wararra-p-col-lo wararra-p-k @ 4 * muru @
+    wararra-p-col-hi wararra-p-k @ 4 * muru @
+    wararra-p-al @ wararra-p-ah @
+    poly-add64
+    wararra-p-col-hi wararra-p-k @ 4 * muru !
+    wararra-p-col-lo wararra-p-k @ 4 * muru !
+kunbayn
+
+
+balkalaway poly-mul-r
+    0 wararra-p-k !
+    yabarrka
+        wararra-p-k @ 10 junkay yala janay kunbayn
+        0 wararra-p-col-lo wararra-p-k @ 4 * muru !
+        0 wararra-p-col-hi wararra-p-k @ 4 * muru !
+        wararra-p-k @ 1 muru wararra-p-k !
+    kunbayn
+
+    0 wararra-p-i !
+    yabarrka
+        wararra-p-i @ 5 junkay yala janay kunbayn
+        0 wararra-p-j !
+        yabarrka
+            wararra-p-j @ 5 junkay yala janay kunbayn
+            wararra-p-acc wararra-p-i @ 4 * muru @
+            wararra-p-r   wararra-p-j @ 4 * muru @
+            jambul-*
+            wararra-p-i @ wararra-p-j @ muru poly-col-add64-prod
+            wararra-p-j @ 1 muru wararra-p-j !
+        kunbayn
+        wararra-p-i @ 1 muru wararra-p-i !
+    kunbayn
+
+    0 wararra-p-i !
+    yabarrka
+        wararra-p-i @ 5 junkay yala janay kunbayn
+        wararra-p-col-lo wararra-p-i @ 5 muru 4 * muru @
+        5 jambul-*
+        wararra-p-tmp !
+        wararra-p-i @ poly-col-add64-prod
+        wararra-p-col-hi wararra-p-i @ 5 muru 4 * muru @
+        5 jambul-*
+        wararra-p-tmp !
+        wararra-p-i @ 1 muru poly-col-add64-prod
+        wararra-p-i @ 1 muru wararra-p-i !
+    kunbayn
+
+    0 wararra-p-carry !
+    0 wararra-p-i !
+    yabarrka
+        wararra-p-i @ 5 junkay yala janay kunbayn
+        wararra-p-col-lo wararra-p-i @ 4 * muru @
+        wararra-p-carry @ muru
+        kujil 0x3ffffff & wararra-p-acc wararra-p-i @ 4 * muru !
+        26 >>
+        wararra-p-col-hi wararra-p-i @ 4 * muru @ 6 << |
+        wararra-p-carry !
+        wararra-p-i @ 1 muru wararra-p-i !
+    kunbayn
+
+    wararra-p-carry @ 5 * wararra-p-acc @ muru
+    kujil 0x3ffffff & wararra-p-acc !
+    26 >> wararra-p-acc 4 muru @ muru wararra-p-acc 4 muru !
+kunbayn
+
+
+balkalaway poly-finalize
+    wararra-p-tagaddr !
+
+    0 wararra-p-carry !
+    0 wararra-p-i !
+    yabarrka
+        wararra-p-i @ 5 junkay yala janay kunbayn
+        wararra-p-acc wararra-p-i @ 4 * muru @
+        wararra-p-carry @ muru
+        kujil 0x3ffffff & wararra-p-acc wararra-p-i @ 4 * muru !
+        26 >> wararra-p-carry !
+        wararra-p-i @ 1 muru wararra-p-i !
+    kunbayn
+    wararra-p-carry @ 5 * wararra-p-acc @ muru
+    kujil 0x3ffffff & wararra-p-acc !
+    26 >> wararra-p-acc 4 muru @ muru wararra-p-acc 4 muru !
+
+    wararra-p-acc @ wararra-p-acc 4 muru @ 26 << | wararra-p-al !
+    wararra-p-acc 4 muru @ 6 >>
+    wararra-p-acc 8 muru @ 20 << |
+    wararra-p-bl !
+    wararra-p-acc 8 muru @ 12 >>
+    wararra-p-acc 12 muru @ 14 << |
+    wararra-p-cl !
+    wararra-p-acc 12 muru @ 18 >>
+    wararra-p-acc 16 muru @ 8 << |
+    wararra-p-tmp !
+
+    wararra-p-al @
+    wararra-p-tagaddr @ 0  muru c@ wararra-p-keyaddr @  16 muru c@  ^  ^
+    wararra-p-tagaddr @ 0 muru c!
+    wuljil
+kunbayn
+
+
+balkalaway jakalbaku-warri
+kunbayn
