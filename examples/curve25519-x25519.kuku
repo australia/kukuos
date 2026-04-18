@@ -36,6 +36,7 @@ wararra wararra-x-k121665
 nandal
 
 wararra wararra-x-swap    0 0 0 0 nandal
+wararra wararra-x-cs-flag 0 0 0 0 nandal
 wararra wararra-x-bit     0 0 0 0 nandal
 wararra wararra-x-kt      0 0 0 0 nandal
 wararra wararra-x-ii      0 0 0 0 nandal
@@ -60,8 +61,8 @@ kunbayn
 balkalaway x-cswap
     wararra-x-dst !
     wararra-x-src !
-    wararra-x-swap !
-    wararra-x-swap @ 0 junkay kari yala
+    wararra-x-cs-flag !
+    wararra-x-cs-flag @ 0 junkay kari yala
         0 wararra-x-ii !
         yabarrka
             wararra-x-ii @ 8 junkay yala janay kunbayn
