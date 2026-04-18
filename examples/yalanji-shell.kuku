@@ -1,0 +1,382 @@
+# yalanji-shell.kuku -- a Linux-mode Kuku shell.  Same visible experience as
+# the bare-metal kernel, but runs as an ordinary Linux process: NO QEMU in
+# the path.  Extended with yirrkay / balkal / yanyil / dukul so the file pad
+# is available from the same login.
+#
+# Compile:
+#     ./kuku-bama/ngunnga --bama yalanji-shell examples/yalanji-shell.kuku
+
+
+wararra wararra-banner
+    "\n"
+    "    ===============================================\n"
+    "      Yalanji -- an OS in Kuku Yalanji\n"
+    "    ===============================================\n"
+    "\n"
+    "    kuku: kaday  binal  jalngka  kunbayn\n"
+    "    kuku: yirrkay  balkal  yanyil  dukul    (/srv/box)\n"
+    "\n"
+    0
+nandal
+
+wararra wararra-greet "kaday, bama! yala Yalanji.\n" 0 nandal
+wararra wararra-help  "kuku: kaday, binal, jalngka, kunbayn, yirrkay, balkal, yanyil, dukul.\n\n" 0 nandal
+wararra wararra-prompt "yalanji> " 0 nandal
+
+wararra wararra-cmd-kaday   "kaday"   0 nandal
+wararra wararra-cmd-binal   "binal"   0 nandal
+wararra wararra-cmd-jalngka "jalngka" 0 nandal
+wararra wararra-cmd-kunbayn "kunbayn" 0 nandal
+wararra wararra-cmd-yirrkay "yirrkay" 0 nandal
+wararra wararra-cmd-balkal  "balkal"  0 nandal
+wararra wararra-cmd-yanyil  "yanyil"  0 nandal
+wararra wararra-cmd-dukul   "dukul"   0 nandal
+
+wararra wararra-kaday-msg   "kaday, bama!\n" 0 nandal
+wararra wararra-bye         "kunbayn.\n" 0 nandal
+wararra wararra-unknown-pre "binal kari: " 0 nandal
+wararra wararra-info1 "Yalanji\n"            0 nandal
+wararra wararra-info2 "  dukurr : jirakal\n" 0 nandal
+wararra wararra-info3 "  baya   : warri\n"   0 nandal
+wararra wararra-info4 "  miyil  : bana\n"    0 nandal
+wararra wararra-info5 "  milka  : ngunnga\n" 0 nandal
+wararra wararra-clear "\e[2J\e[H" 0 nandal
+wararra wararra-newline "\n" 0 nandal
+
+wararra wararra-box-prefix "/srv/box/" 0 nandal
+wararra wararra-dirpath    "/srv/box"  0 nandal
+wararra wararra-err-open   "ngunnga kari\n"          0 nandal
+wararra wararra-err-slash  "baral kunbayn, / kari\n" 0 nandal
+wararra wararra-err-noarg  "babaji kari\n"           0 nandal
+wararra wararra-err-notext "balkal kuku kari\n"      0 nandal
+
+wararra-bss wararra-line          256
+wararra-bss wararra-tmp-i           4
+wararra-bss wararra-tmp-j           4
+wararra-bss wararra-tmp-k           4
+wararra-bss wararra-streq-p         4
+wararra-bss wararra-streq-q         4
+wararra-bss wararra-nread           4
+wararra-bss wararra-arg-pos         4
+wararra-bss wararra-arg2-pos        4
+wararra-bss wararra-path-buf      256
+wararra-bss wararra-file-fd         4
+wararra-bss wararra-file-buf     4096
+wararra-bss wararra-file-nread      4
+wararra-bss wararra-file-pos        4
+wararra-bss wararra-file-reclen     4
+
+
+balkalaway strlen
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+
+balkalaway streq
+    wararra-streq-q !
+    wararra-streq-p !
+    yabarrka
+        wararra-streq-p @ c@
+        wararra-streq-q @ c@
+        junkay kari
+        yala 0 janay kunbayn
+        wararra-streq-p @ c@ 0 junkay
+        yala 1 janay kunbayn
+        wararra-streq-p @ 1 muru wararra-streq-p !
+        wararra-streq-q @ 1 muru wararra-streq-q !
+    kunbayn
+kunbayn
+
+
+balkalaway write-cstr
+    # (fd ptr -)  pure stack
+    kujil strlen
+    bama-balkal wuljil
+kunbayn
+
+
+balkalaway babaji-line
+    # ( - nread)  read one line char-by-char; null-terminated in wararra-line
+    0 wararra-nread !
+    yabarrka
+        0 wararra-tmp-j 1 bama-babaji wararra-tmp-i !
+        wararra-tmp-i @ 1 buban yala janay kunbayn
+        wararra-tmp-j c@ 0x0A junkay yala janay kunbayn
+        wararra-nread @ 254 buban
+        yala
+            wararra-tmp-j c@ wararra-line wararra-nread @ muru c!
+            wararra-nread @ 1 muru wararra-nread !
+        kunbayn
+    kunbayn
+    0 wararra-line wararra-nread @ muru c!
+    wararra-nread @
+kunbayn
+
+
+balkalaway split-cmd
+    # Null-terminates wararra-line at the first space; sets wararra-arg-pos
+    # to the start of the remainder (0 if no space found).
+    0 wararra-arg-pos !
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-line wararra-tmp-i @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        kujil 0x20 junkay
+        yala
+            wuljil
+            0 wararra-line wararra-tmp-i @ muru c!
+            wararra-tmp-i @ 1 muru wararra-arg-pos !
+            janay
+            yinya
+            wuljil
+        kunbayn
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+
+balkalaway split-arg
+    # Starting at wararra-arg-pos, null-terminates at the next space and sets
+    # wararra-arg2-pos to the start of whatever follows (0 if no more).
+    0 wararra-arg2-pos !
+    wararra-arg-pos @ 0 junkay
+    yala yinya
+        wararra-arg-pos @ wararra-tmp-i !
+        yabarrka
+            wararra-line wararra-tmp-i @ muru c@
+            kujil 0 junkay yala wuljil janay kunbayn
+            kujil 0x20 junkay
+            yala
+                wuljil
+                0 wararra-line wararra-tmp-i @ muru c!
+                wararra-tmp-i @ 1 muru wararra-arg2-pos !
+                janay
+                yinya
+                wuljil
+            kunbayn
+            wararra-tmp-i @ 1 muru wararra-tmp-i !
+        kunbayn
+    kunbayn
+kunbayn
+
+
+balkalaway check-slash
+    # ( - 1 if arg at arg-pos contains '/', else 0)
+    0 wararra-tmp-k !
+    wararra-arg-pos @ wararra-tmp-i !
+    yabarrka
+        wararra-line wararra-tmp-i @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        kujil 0x2F junkay yala wuljil 1 wararra-tmp-k ! janay kunbayn
+        wuljil
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    wararra-tmp-k @
+kunbayn
+
+
+balkalaway copy-prefix-name
+    # Build wararra-path-buf = /srv/box/<name>
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-box-prefix wararra-tmp-i @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wararra-path-buf wararra-tmp-i @ muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    wararra-arg-pos @ wararra-tmp-j !
+    yabarrka
+        wararra-line wararra-tmp-j @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wararra-path-buf wararra-tmp-i @ muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+        wararra-tmp-j @ 1 muru wararra-tmp-j !
+    kunbayn
+    0 wararra-path-buf wararra-tmp-i @ muru c!
+kunbayn
+
+
+balkalaway build-path
+    # ( - 1 on success, 0 on rejection).  Prints its own error on failure.
+    wararra-arg-pos @ 0 junkay
+    yala
+        1 wararra-err-noarg write-cstr
+        0
+        yinya
+        check-slash
+        yala
+            1 wararra-err-slash write-cstr
+            0
+            yinya
+            copy-prefix-name
+            1
+        kunbayn
+    kunbayn
+kunbayn
+
+
+balkalaway cmd-kaday
+    1 wararra-kaday-msg write-cstr
+kunbayn
+
+balkalaway cmd-binal
+    1 wararra-info1 write-cstr
+    1 wararra-info2 write-cstr
+    1 wararra-info3 write-cstr
+    1 wararra-info4 write-cstr
+    1 wararra-info5 write-cstr
+kunbayn
+
+balkalaway cmd-jalngka
+    1 wararra-clear write-cstr
+kunbayn
+
+balkalaway cmd-kunbayn
+    1 wararra-bye write-cstr
+    0 bama-kunbayn
+kunbayn
+
+balkalaway cmd-unknown
+    1 wararra-unknown-pre write-cstr
+    1 wararra-line write-cstr
+    1 wararra-newline write-cstr
+kunbayn
+
+
+balkalaway cmd-yirrkay
+    wararra-arg-pos @ 0 junkay
+    yala
+        1 wararra-newline write-cstr
+        yinya
+        1 wararra-line wararra-arg-pos @ muru write-cstr
+        1 wararra-newline write-cstr
+    kunbayn
+kunbayn
+
+
+balkalaway cmd-dukul
+    wararra-dirpath 0 bama-ngunnga wararra-file-fd !
+    wararra-file-fd @ 0 jirray
+    yala
+        yabarrka
+            wararra-file-fd @ wararra-file-buf 4096 bama-dukul wararra-file-nread !
+            wararra-file-nread @ 1 buban yala janay kunbayn
+            0 wararra-file-pos !
+            yabarrka
+                wararra-file-pos @ wararra-file-nread @ buban kari yala janay kunbayn
+                wararra-file-buf wararra-file-pos @ muru 16 muru c@
+                wararra-file-buf wararra-file-pos @ muru 17 muru c@ 8 <<
+                |
+                wararra-file-reclen !
+                wararra-file-buf wararra-file-pos @ muru 19 muru
+                kujil c@ 0x2E junkay kari
+                yala
+                    1 wundil write-cstr
+                    1 wararra-newline write-cstr
+                    yinya
+                    wuljil
+                kunbayn
+                wararra-file-pos @ wararra-file-reclen @ muru wararra-file-pos !
+            kunbayn
+        kunbayn
+        wararra-file-fd @ bama-nandal wuljil
+        yinya
+        1 wararra-err-open write-cstr
+    kunbayn
+kunbayn
+
+
+balkalaway cmd-yanyil
+    split-arg
+    build-path
+    yala
+        wararra-path-buf 0 bama-ngunnga wararra-file-fd !
+        wararra-file-fd @ 0 jirray
+        yala
+            yabarrka
+                wararra-file-fd @ wararra-file-buf 4096 bama-babaji wararra-file-nread !
+                wararra-file-nread @ 1 buban yala janay kunbayn
+                1 wararra-file-buf wararra-file-nread @ bama-balkal wuljil
+            kunbayn
+            wararra-file-fd @ bama-nandal wuljil
+            yinya
+            1 wararra-err-open write-cstr
+        kunbayn
+    kunbayn
+kunbayn
+
+
+balkalaway cmd-balkal
+    split-arg
+    build-path
+    yala
+        wararra-arg2-pos @ 0 junkay
+        yala
+            1 wararra-err-notext write-cstr
+            yinya
+            wararra-path-buf 0x241 bama-ngunnga wararra-file-fd !
+            wararra-file-fd @ 0 jirray
+            yala
+                wararra-file-fd @
+                wararra-line wararra-arg2-pos @ muru
+                wararra-line wararra-arg2-pos @ muru strlen
+                bama-balkal wuljil
+                wararra-file-fd @ wararra-newline 1 bama-balkal wuljil
+                wararra-file-fd @ bama-nandal wuljil
+                yinya
+                1 wararra-err-open write-cstr
+            kunbayn
+        kunbayn
+    kunbayn
+kunbayn
+
+
+balkalaway shell-dispatch
+    split-cmd
+    yabarrka
+        wararra-line c@ 0 junkay yala janay kunbayn
+        wararra-line wararra-cmd-kaday streq
+        yala cmd-kaday janay kunbayn
+        wararra-line wararra-cmd-binal streq
+        yala cmd-binal janay kunbayn
+        wararra-line wararra-cmd-jalngka streq
+        yala cmd-jalngka janay kunbayn
+        wararra-line wararra-cmd-kunbayn streq
+        yala cmd-kunbayn janay kunbayn
+        wararra-line wararra-cmd-yirrkay streq
+        yala cmd-yirrkay janay kunbayn
+        wararra-line wararra-cmd-yanyil streq
+        yala cmd-yanyil janay kunbayn
+        wararra-line wararra-cmd-balkal streq
+        yala cmd-balkal janay kunbayn
+        wararra-line wararra-cmd-dukul streq
+        yala cmd-dukul janay kunbayn
+        cmd-unknown
+        janay
+    kunbayn
+kunbayn
+
+
+balkalaway shell-loop
+    yabarrka
+        1 wararra-prompt write-cstr
+        babaji-line
+        kujil 1 buban yala wuljil janay kunbayn
+        wuljil
+        shell-dispatch
+    kunbayn
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    1 wararra-banner write-cstr
+    1 wararra-greet write-cstr
+    1 wararra-help write-cstr
+    shell-loop
+    0 bama-kunbayn
+kunbayn

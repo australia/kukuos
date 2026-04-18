@@ -1,0 +1,79 @@
+# bayan-dukul -- "heads": list the entries of /srv/box/ (skipping dotfiles).
+# Kuku Yalanji replacement for `ls`.  Uses the bama-dukul primitive which
+# wraps the Linux getdents64 syscall.
+#
+# Compile:
+#     ./kuku-bama/ngunnga --bama dukul examples/bayan-dukul.kuku
+
+
+wararra wararra-dirpath  "/srv/box" 0 nandal
+wararra wararra-newline  "\n"       0 nandal
+wararra wararra-err-open "dukul: ngunnga kari\n" 0 nandal
+
+wararra-bss wararra-buf       8192
+wararra-bss wararra-fd          4
+wararra-bss wararra-nread       4
+wararra-bss wararra-pos         4
+wararra-bss wararra-reclen      4
+wararra-bss wararra-tmp-i       4
+wararra-bss wararra-tmp-j       4
+
+
+balkalaway strlen
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+
+balkalaway write-cstr
+    # (fd ptr -)  pure stack
+    kujil strlen
+    bama-balkal wuljil
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    wararra-dirpath 0 bama-ngunnga wararra-fd !
+    wararra-fd @ 0 buban
+    yala 2 wararra-err-open write-cstr 1 bama-kunbayn kunbayn
+
+    yabarrka
+        wararra-fd @ wararra-buf 8192 bama-dukul wararra-nread !
+        wararra-nread @ 1 buban yala janay kunbayn
+
+        0 wararra-pos !
+        yabarrka
+            wararra-pos @ wararra-nread @ buban kari yala janay kunbayn
+
+            # linux_dirent64 layout on i386:
+            #   0..7  d_ino (u64)
+            #   8..15 d_off (s64)
+            #   16..17 d_reclen (u16)
+            #   18     d_type (u8)
+            #   19..   d_name (null-terminated)
+            wararra-buf wararra-pos @ muru 16 muru c@
+            wararra-buf wararra-pos @ muru 17 muru c@ 8 <<
+            |
+            wararra-reclen !
+
+            wararra-buf wararra-pos @ muru 19 muru
+            # stack: name-ptr
+            kujil c@ 0x2E junkay kari
+            yala
+                1 wundil write-cstr
+                1 wararra-newline write-cstr
+                yinya
+                wuljil
+            kunbayn
+
+            wararra-pos @ wararra-reclen @ muru wararra-pos !
+        kunbayn
+    kunbayn
+
+    wararra-fd @ bama-nandal wuljil
+    0 bama-kunbayn
+kunbayn

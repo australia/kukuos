@@ -1,0 +1,19 @@
+# nganjal-balkal
+
+
+wararra wararra-path  "/srv/yalanji/kuku.txt" 0  nandal
+wararra wararra-n     0 0 0 0  nandal
+wararra-bss wararra-buf 65536
+
+
+balkalaway jakalbaku-warri
+    wararra-path 0 bama-ngunnga
+    kujil 0 buban yala
+        wuljil
+        1 bama-kunbayn
+    kunbayn
+    kujil wararra-buf 65536 bama-babaji
+    wararra-n !
+    bama-nandal wuljil
+    1 wararra-buf wararra-n @ bama-balkal wuljil
+kunbayn

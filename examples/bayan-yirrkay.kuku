@@ -1,0 +1,48 @@
+# bayan-yirrkay -- "shout": write argv[1..] to stdout separated by spaces,
+# followed by a single newline.  Kuku Yalanji replacement for `echo`.
+#
+# Compile:
+#     ./kuku-bama/ngunnga --bama yirrkay examples/bayan-yirrkay.kuku
+#
+# Usage:
+#     yirrkay kaday bama | balkal greetings.txt
+
+
+wararra wararra-space    " "  0 nandal
+wararra wararra-newline  "\n" 0 nandal
+
+wararra-bss wararra-tmp-i 4
+wararra-bss wararra-tmp-j 4
+
+
+balkalaway strlen
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+
+balkalaway write-cstr
+    # (fd ptr -)  pure stack, does not touch tmp-*
+    kujil strlen
+    bama-balkal wuljil
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    1 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ bama-wangkanil junkay yala janay kunbayn
+        wararra-tmp-i @ 1 jirray
+        yala
+            1 wararra-space write-cstr
+        kunbayn
+        1 wararra-tmp-i @ 4 * bama-wararra muru @ write-cstr
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    1 wararra-newline write-cstr
+    0 bama-kunbayn
+kunbayn

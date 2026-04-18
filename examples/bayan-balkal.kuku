@@ -1,0 +1,79 @@
+# bayan-balkal -- reads stdin, writes it to /srv/box/<argv[1]>.
+#
+# Usage (on the droplet, as user yalanji-box):
+#     echo "kaday bama" | balkal greetings.txt
+#
+# Refuses filenames containing '/' so callers cannot escape /srv/box.
+# Compile:
+#     ./kuku-bama/ngunnga --bama balkal examples/bayan-balkal.kuku
+
+
+wararra wararra-prefix   "/srv/box/" 0 nandal
+
+wararra-bss wararra-path      256
+wararra-bss wararra-buf      8192
+wararra-bss wararra-fd          4
+wararra-bss wararra-nread       4
+wararra-bss wararra-tmp-i       4
+wararra-bss wararra-tmp-j       4
+wararra-bss wararra-tmp-k       4
+
+
+balkalaway birru-kuku
+    # (msg len -)  write msg to stderr and exit 1
+    wararra-tmp-i !
+    wararra-tmp-j !
+    2 wararra-tmp-j @ wararra-tmp-i @ bama-balkal wuljil
+    1 bama-kunbayn
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    bama-wangkanil 2 buban
+    yala "warri: balkal KUKU\n" 19 birru-kuku kunbayn
+
+    # reject '/' in argv[1]
+    1 4 * bama-wararra muru @ wararra-tmp-j !
+    yabarrka
+        wararra-tmp-j @ c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        kujil 47 junkay
+        yala "balkal: path kari, baral kunbayn\n" 33 birru-kuku kunbayn
+        wuljil
+        wararra-tmp-j @ 1 muru wararra-tmp-j !
+    kunbayn
+
+    # build path = "/srv/box/" + argv[1]
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-prefix wararra-tmp-i @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wararra-path wararra-tmp-i @ muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    1 4 * bama-wararra muru @ wararra-tmp-j !
+    0 wararra-tmp-k !
+    yabarrka
+        wararra-tmp-j @ wararra-tmp-k @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wararra-path wararra-tmp-i @ muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+        wararra-tmp-k @ 1 muru wararra-tmp-k !
+    kunbayn
+    0 wararra-path wararra-tmp-i @ muru c!
+
+    # open  O_WRONLY|O_CREAT|O_TRUNC = 0x241
+    wararra-path 0x241 bama-ngunnga wararra-fd !
+    wararra-fd @ 0 buban
+    yala "balkal: ngunnga kari\n" 21 birru-kuku kunbayn
+
+    # drain stdin into file
+    yabarrka
+        0 wararra-buf 8192 bama-babaji wararra-nread !
+        wararra-nread @ 1 buban yala janay kunbayn
+        wararra-fd @ wararra-buf wararra-nread @ bama-balkal wuljil
+    kunbayn
+
+    wararra-fd @ bama-nandal wuljil
+    0 bama-kunbayn
+kunbayn

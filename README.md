@@ -59,13 +59,73 @@ shell glue, and no Dockerfile/Makefile in the repo.
 
 ### Option 0 — SSH straight into the public demo
 
+Two public accounts on the droplet.  **Neither uses QEMU** — both lands you
+inside a Kuku-compiled Linux process.  Both passwords: `yalanji`.
+
 ```
-ssh yalanji@24.199.97.226
-# password: yalanji
+ssh yalanji@24.199.97.226          # the Yalanji shell (interactive)
+ssh yalanji-box@24.199.97.226      # plain /bin/sh with the Kuku file tools on $PATH (for piping)
 ```
 
-Connects you to a cheap Digital Ocean droplet whose login shell IS a QEMU
-instance booting the Yalanji kernel.  Sessions cap at 10 minutes.
+Password-auth workaround if you have many keys in ssh-agent:
+```
+ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password yalanji@24.199.97.226
+```
+
+**Inside the Yalanji shell** — everything works in one place:
+
+```
+yalanji> kaday
+kaday, bama!
+yalanji> yirrkay kaday everyone, this works
+kaday everyone, this works
+yalanji> balkal note.txt hello from the yalanji shell
+yalanji> dukul
+note.txt
+yalanji> yanyil note.txt
+hello from the yalanji shell
+yalanji> binal
+Yalanji
+  dukurr : jirakal
+  baya   : warri
+  miyil  : bana
+  milka  : ngunnga
+yalanji> kunbayn
+kunbayn.
+```
+
+| Command                | Kuku Yalanji meaning | Does                                                         |
+|------------------------|----------------------|--------------------------------------------------------------|
+| `kaday`                | come                 | Greets you                                                   |
+| `binal`                | know                 | Kernel identity / status                                     |
+| `jalngka`              | smooth               | Clear screen                                                 |
+| `kunbayn`              | finish               | Exit                                                         |
+| `yirrkay TEXT...`      | shout                | Print TEXT (replaces `echo`)                                 |
+| `balkal NAME TEXT...`  | tell                 | Write TEXT to `/srv/box/NAME`                                |
+| `yanyil NAME`          | see                  | Read `/srv/box/NAME` to stdout (replaces `cat`)              |
+| `dukul`                | heads                | List `/srv/box/` via `getdents64` (replaces `ls`)            |
+
+`balkal` and `yanyil` reject any NAME containing `/`, so the sandbox holds.
+Everyone who logs in as `yalanji` shares the same `/srv/box` directory — it's a
+public paste pad.  The shell is a ~2.5 KB Kuku Linux ELF
+([`examples/yalanji-shell.kuku`](examples/yalanji-shell.kuku)); the four file commands
+are built into it using the same `bama-*` syscalls you'd use yourself
+(`open`, `read`, `write`, `close`, `getdents64`).
+
+**The `yalanji-box` account** is for when you want to pipe content in/out from
+outside — handy for scripting:
+
+```
+ssh yalanji-box@24.199.97.226 balkal greetings.txt <<< "hello from bash"
+ssh yalanji-box@24.199.97.226 yanyil greetings.txt
+```
+
+It runs `/bin/sh` in `/srv/box` with the same four Kuku tools on `$PATH`, now as
+standalone binaries:
+[`examples/bayan-yirrkay.kuku`](examples/bayan-yirrkay.kuku),
+[`examples/bayan-balkal.kuku`](examples/bayan-balkal.kuku),
+[`examples/bayan-yanyil.kuku`](examples/bayan-yanyil.kuku),
+[`examples/bayan-dukul.kuku`](examples/bayan-dukul.kuku).
 
 ### Option 1 — pull the pre-built image
 
@@ -208,6 +268,41 @@ The same program is what the Kuku compiler itself uses internally to read
 `.kuku` source files and write out ELF kernels — just on a much larger
 scale.  Note that the bare-metal kernel (the one you boot over SSH) does
 **not** yet have a filesystem; that's a separate project after SSH-in-Kuku.
+
+---
+
+## Examples to read
+
+Everything in [`examples/`](examples/) is pure Kuku, self-contained, and
+compiles with the same `kuku-bama/ngunnga` binary.  Read them in roughly
+this order to learn the language by doing:
+
+| File                             | Shows                                                |
+|----------------------------------|------------------------------------------------------|
+| `nganjal.kuku`                   | File I/O round-trip via `bama-*` syscalls            |
+| `yalanji-bana.kuku`              | Serial driver in isolation (useful for unit testing) |
+| `yalanji-wari.kuku`              | PCI config-space scan, the same code as `wari` in the shell |
+| `sha256.kuku` / `sha512.kuku`    | Pure-Kuku hashes matching the NIST test vectors      |
+| `chacha20.kuku`                  | ChaCha20 block function (RFC 7539)                   |
+| `poly1305.kuku`                  | Poly1305 MAC (WIP — segfaults at finalize; good intro to hard Kuku)  |
+| `curve25519-fe.kuku`             | Field arithmetic mod 2²⁵⁵−19                         |
+| `curve25519-x25519.kuku`         | X25519 key-agreement matching RFC 7748               |
+| `ed25519-scalar.kuku`            | Scalar add/sub/reduce mod L                          |
+| `ed25519-point.kuku`             | Twisted-Edwards point add / double                   |
+| `ed25519-sign.kuku`              | Full Ed25519 signing matching RFC 8032 vector 1      |
+
+These examples are the closest thing this project has to a test suite —
+each one ends by asserting against a published test vector and exits
+non-zero on mismatch.
+
+To try one:
+
+```
+./kuku-bama/ngunnga --bama /tmp/sha256 examples/sha256.kuku
+/tmp/sha256 && echo "vectors match"
+```
+
+---
 
 ## Best practices
 
