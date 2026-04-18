@@ -1,0 +1,156 @@
+# yanyil
+
+wararra yanyil-jina        0 0 0 0 nandal
+wararra yanyil-mara        0 0 0 0 nandal
+wararra yanyil-baya        0 0 0 0 nandal
+wararra yanyil-tmp-mara    0 0 0 0 nandal
+
+balkalaway yanyil-daya-baya
+    yanyil-baya !
+kunbayn
+
+balkalaway yanyil-daya-jakalbaku
+    0x0F 0x3D4 daya-baral
+    yanyil-jina @ 80 * yanyil-mara @ muru 0xFF &
+    0x3D5 daya-baral
+    0x0E 0x3D4 daya-baral
+    yanyil-jina @ 80 * yanyil-mara @ muru 8 >> 0xFF &
+    0x3D5 daya-baral
+kunbayn
+
+balkalaway yanyil-cell-write
+    yanyil-tmp-mara !
+    yanyil-jina @ 80 * yanyil-mara @ muru 1 << 0xB8000 muru
+    yanyil-tmp-mara @ wundil c!
+    yanyil-baya @
+    yanyil-jina @ 80 * yanyil-mara @ muru 1 << 0xB8000 muru 1 muru
+    c!
+kunbayn
+
+balkalaway yanyil-jalngka
+    0x20 yanyil-baya @ 8 << |
+    kujil 16 << |
+    0 yanyil-tmp-mara !
+    yabarrka
+        yanyil-tmp-mara @ 4000 buban kari
+        yala
+            janay
+        kunbayn
+        kujil
+        0xB8000 yanyil-tmp-mara @ muru
+        !
+        yanyil-tmp-mara @ 4 muru yanyil-tmp-mara !
+    kunbayn
+    wuljil
+    0 yanyil-jina !
+    0 yanyil-mara !
+    yanyil-daya-jakalbaku
+kunbayn
+
+balkalaway yanyil-kulbal
+    0 yanyil-tmp-mara !
+    yabarrka
+        yanyil-tmp-mara @ 3840 buban kari
+        yala
+            janay
+        kunbayn
+        0xB8000 yanyil-tmp-mara @ muru 160 muru @
+        0xB8000 yanyil-tmp-mara @ muru
+        !
+        yanyil-tmp-mara @ 4 muru yanyil-tmp-mara !
+    kunbayn
+    0x20 yanyil-baya @ 8 << |
+    kujil 16 << |
+    3840 yanyil-tmp-mara !
+    yabarrka
+        yanyil-tmp-mara @ 4000 buban kari
+        yala
+            janay
+        kunbayn
+        kujil
+        0xB8000 yanyil-tmp-mara @ muru
+        !
+        yanyil-tmp-mara @ 4 muru yanyil-tmp-mara !
+    kunbayn
+    wuljil
+    24 yanyil-jina !
+    0 yanyil-mara !
+kunbayn
+
+balkalaway yanyil-balkal-jina
+    kujil bana-mirror
+    kujil 0x0A junkay
+    yala
+        wuljil
+        0 yanyil-mara !
+        yanyil-jina @ 1 muru yanyil-jina !
+        yinya
+        kujil 0x08 junkay
+        yala
+            wuljil
+            yanyil-mara @ 0 jirray
+            yala
+                yanyil-mara @ 1 dumbarril yanyil-mara !
+                0x20 yanyil-cell-write
+            kunbayn
+            yinya
+            kujil yanyil-cell-write
+            yanyil-mara @ 1 muru yanyil-mara !
+            wuljil
+        kunbayn
+    kunbayn
+    yanyil-mara @ 79 jirray
+    yala
+        0 yanyil-mara !
+        yanyil-jina @ 1 muru yanyil-jina !
+    kunbayn
+    yanyil-jina @ 24 jirray
+    yala
+        yanyil-kulbal
+    kunbayn
+    yanyil-daya-jakalbaku
+kunbayn
+
+balkalaway yanyil-balkal-kuku
+    wararra-tmp-yala !
+    yabarrka
+        wararra-tmp-yala @ c@
+        kujil 0 junkay
+        yala
+            wuljil
+            janay
+        kunbayn
+        yanyil-balkal-jina
+        wararra-tmp-yala @ 1 muru wararra-tmp-yala !
+    kunbayn
+kunbayn
+
+balkalaway yanyil-balkal-nibble
+    # (n -)  print n as one hex digit (0-15)
+    kujil 10 buban
+    yala 0x30 muru yinya 55 muru kunbayn
+    yanyil-balkal-jina
+kunbayn
+
+balkalaway yanyil-balkal-byte-hex
+    # (byte -)  print 2 hex digits
+    kujil 4 >> 0xF & yanyil-balkal-nibble
+    0xF & yanyil-balkal-nibble
+kunbayn
+
+balkalaway yanyil-balkal-hex
+    # (value -)  print 8 hex digits (MSB first)
+    wararra-tmp-yala !
+    7 wararra-tmp-yinya !
+    yabarrka
+        wararra-tmp-yala @ wararra-tmp-yinya @ 4 * >> 0xF &
+        yanyil-balkal-nibble
+        wararra-tmp-yinya @ 0 junkay yala janay kunbayn
+        wararra-tmp-yinya @ 1 dumbarril wararra-tmp-yinya !
+    kunbayn
+kunbayn
+
+balkalaway yanyil-ngunnga
+    0x0F yanyil-daya-baya
+    yanyil-jalngka
+kunbayn

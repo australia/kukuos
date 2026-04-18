@@ -1,0 +1,181 @@
+# wari -- networking.  "wari" = sign / call / telepathic communication.
+#
+# Milestones reached:
+#   1. PCI bus scan, virtio-net detection.
+#   2. Virtio-net legacy device init (ACK / DRIVER / features / DRIVER_OK),
+#      read MAC address from device-specific config.
+#
+# Still to come: virtqueue rings, TX one frame, RX one frame, ARP, IP, TCP,
+# crypto, SSH.
+
+wararra wararra-wari-a  0 0 0 0  nandal
+wararra wararra-wari-b  0 0 0 0  nandal
+wararra wararra-wari-c  0 0 0 0  nandal
+wararra wararra-wari-d  0 0 0 0  nandal
+wararra wararra-wari-slot    0 0 0 0  nandal   # virtio-net device slot, or -1
+wararra wararra-wari-bar     0 0 0 0  nandal   # virtio-net I/O base
+wararra wararra-wari-status  0 0 0 0  nandal   # last status read
+
+
+# -- PCI config-space access ------------------------------------------------
+
+balkalaway wari-mana
+    # (bus dev func off - dword)   read 32-bit PCI config
+    0xFC & wararra-wari-a !
+    8 << wararra-wari-b !
+    11 << wararra-wari-c !
+    16 <<
+    wararra-wari-c @ |
+    wararra-wari-b @ |
+    wararra-wari-a @ |
+    0x80000000 |
+    0xCF8 daya-baral-jirray
+    0xCFC mana-baral-jirray
+kunbayn
+
+
+# -- Scan / detect ----------------------------------------------------------
+
+balkalaway wari-find
+    # scan bus 0, record first virtio (vendor 0x1AF4) device slot
+    -1 wararra-wari-slot !
+    0 wararra-wari-d !
+    yabarrka
+        wararra-wari-d @ 32 buban kari yala janay kunbayn
+        0 wararra-wari-d @ 0 0 wari-mana
+        0xFFFF & 0x1AF4 junkay
+        yala
+            wararra-wari-d @ wararra-wari-slot !
+            janay
+        kunbayn
+        wararra-wari-d @ 1 muru wararra-wari-d !
+    kunbayn
+kunbayn
+
+balkalaway wari-balkal-slot
+    # (slot -) print "jina=XXXXXXXX kuku=XXXXXXXX [marker]"
+    "    jina=" yanyil-balkal-kuku
+    kujil yanyil-balkal-hex
+    "  kuku=" yanyil-balkal-kuku
+    0 wundil 0 0 wari-mana
+    kujil yanyil-balkal-hex
+    0xFFFF &
+    0x1AF4 junkay
+    yala
+        "  <-- virtio" yanyil-balkal-kuku
+        yinya
+    kunbayn
+    0x0A yanyil-balkal-jina
+kunbayn
+
+
+# -- Virtio-net legacy device init ------------------------------------------
+#
+# Legacy I/O register map (relative to BAR0):
+#   0x00  device_features   (r32)
+#   0x04  driver_features   (w32)
+#   0x08  queue_address     (w32, PFN)
+#   0x0C  queue_size        (r16)
+#   0x0E  queue_select      (w16)
+#   0x10  queue_notify      (w16)
+#   0x12  status            (r/w8)  0=reset, 1=ACK, 2=DRIVER, 4=DRIVER_OK, 8=FEATURES_OK
+#   0x13  isr_status        (r8 / ack-on-read)
+#   0x14..0x19  MAC (device-specific config for virtio-net)
+
+balkalaway wari-bar-read
+    # read BAR0 from the virtio-net slot, store I/O base in wararra-wari-bar
+    0 wararra-wari-slot @ 0 0x10 wari-mana
+    0xFFFFFFFC &
+    wararra-wari-bar !
+kunbayn
+
+balkalaway wari-status-write
+    # (b -)
+    wararra-wari-bar @ 0x12 muru daya-baral
+kunbayn
+
+balkalaway wari-status-read
+    # (- b)
+    wararra-wari-bar @ 0x12 muru mana-baral
+kunbayn
+
+balkalaway wari-features-read
+    # (- dword)
+    wararra-wari-bar @ mana-baral-jirray
+kunbayn
+
+balkalaway wari-features-write
+    # (dword -)
+    wararra-wari-bar @ 4 muru daya-baral-jirray
+kunbayn
+
+balkalaway wari-ngunnga-net
+    # Bring the virtio-net device up through DRIVER_OK.
+    # 1. reset
+    0 wari-status-write
+    # 2. ACK
+    1 wari-status-write
+    # 3. DRIVER
+    3 wari-status-write
+    # 4. negotiate features -- only accept VIRTIO_NET_F_MAC (bit 5)
+    wari-features-read 0x20 & wari-features-write
+    # 5. DRIVER_OK (bit 2 set on top of ACK|DRIVER)
+    7 wari-status-write
+    wari-status-read wararra-wari-status !
+kunbayn
+
+balkalaway wari-balkal-mac
+    # Print 6 bytes of MAC from (BAR + 0x14 + i), colon-separated.
+    "    mac =" yanyil-balkal-kuku
+    0 wararra-wari-d !
+    yabarrka
+        wararra-wari-d @ 6 buban kari yala janay kunbayn
+        wararra-wari-bar @ 0x14 muru wararra-wari-d @ muru mana-baral
+        yanyil-balkal-byte-hex
+        wararra-wari-d @ 5 junkay kari
+        yala 0x3A yanyil-balkal-jina kunbayn
+        wararra-wari-d @ 1 muru wararra-wari-d !
+    kunbayn
+    0x0A yanyil-balkal-jina
+kunbayn
+
+balkalaway wari-balkal-net
+    "    bar=" yanyil-balkal-kuku
+    wararra-wari-bar @ yanyil-balkal-hex
+    "   status=" yanyil-balkal-kuku
+    wararra-wari-status @ yanyil-balkal-byte-hex
+    0x0A yanyil-balkal-jina
+    wari-balkal-mac
+kunbayn
+
+
+# -- Top-level shell command ------------------------------------------------
+
+balkalaway wari-ngunnga
+    0x0B yanyil-daya-baya
+    "wari: baral binal.\n" yanyil-balkal-kuku
+    0x0F yanyil-daya-baya
+    0 wararra-wari-d !
+    yabarrka
+        wararra-wari-d @ 32 buban kari yala janay kunbayn
+        0 wararra-wari-d @ 0 0 wari-mana
+        kujil 0xFFFF & 0xFFFF junkay
+        yala
+            wuljil
+            yinya
+            wuljil
+            wararra-wari-d @ wari-balkal-slot
+        kunbayn
+        wararra-wari-d @ 1 muru wararra-wari-d !
+    kunbayn
+    wari-find
+    wararra-wari-slot @ -1 junkay
+    yala
+        "    (baral-kuku kari)\n" yanyil-balkal-kuku
+        yinya
+        wari-bar-read
+        wari-ngunnga-net
+        wari-balkal-net
+    kunbayn
+    "wari: kunbayn.\n" yanyil-balkal-kuku
+kunbayn

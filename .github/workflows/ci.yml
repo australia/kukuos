@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  self-host:
+    name: Compiler self-hosts to a fixed point
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rebuild compiler with itself
+        run: |
+          ./kuku-bama/ngunnga --linux /tmp/ngunnga-new kuku-bama/ngunnga.kuku
+
+      - name: Verify byte-for-byte fixed point
+        run: |
+          cmp kuku-bama/ngunnga /tmp/ngunnga-new
+          echo "compiler is a fixed point ✓"
+
+  build-and-boot:
+    name: Kernel builds and boots
+    runs-on: ubuntu-latest
+    needs: self-host
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86
+
+      - name: Compile the kernel
+        run: ./kuku-bama/ngunnga yalanji.elf kuku/*.kuku
+
+      - name: Boot smoke test
+        run: |
+          out=$(timeout 4 qemu-system-i386 -kernel yalanji.elf \
+                   -display none -serial stdio -no-reboot -monitor none \
+                   -netdev user,id=net0 \
+                   -device virtio-net-pci,netdev=net0 \
+                   < /dev/null || true)
+          echo "--- kernel output ---"
+          echo "$out"
+          echo "$out" | grep -q "kaday, bama" || { echo "kernel did not greet"; exit 1; }
+          echo "kernel boots and greets ✓"

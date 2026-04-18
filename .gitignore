@@ -1,0 +1,21 @@
+# Build artifact -- rebuild with ./kuku-bama/ngunnga yalanji.elf kuku/*.kuku
+/yalanji.elf
+
+# kuku-bama/ngunnga is the compiler seed and IS committed intentionally.
+
+# Editor / OS noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+Thumbs.db
+
+# Tooling that might sneak in
+__pycache__/
+*.pyc
+node_modules/
+
+# Temporary files
+/tmp-*
+*.tmp

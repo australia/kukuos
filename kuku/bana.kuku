@@ -1,0 +1,56 @@
+# bana
+
+balkalaway bana-ngunnga
+    0x00 0x3F9 daya-baral
+    0x80 0x3FB daya-baral
+    0x03 0x3F8 daya-baral
+    0x00 0x3F9 daya-baral
+    0x03 0x3FB daya-baral
+    0xC7 0x3FA daya-baral
+    0x0B 0x3FC daya-baral
+kunbayn
+
+balkalaway bana-balkal-jina
+    yabarrka
+        0x3FD mana-baral 0x20 &
+        yala
+            janay
+        kunbayn
+        jalngka
+    kunbayn
+    0x3F8 daya-baral
+kunbayn
+
+balkalaway bana-yanji
+    0x3FD mana-baral 1 &
+kunbayn
+
+balkalaway bana-mana-jina
+    yabarrka
+        bana-yanji
+        yala
+            janay
+        kunbayn
+        jalngka
+    kunbayn
+    0x3F8 mana-baral
+kunbayn
+
+balkalaway bana-mirror
+    kujil 0x0A junkay
+    yala
+        wuljil
+        0x0D bana-balkal-jina
+        0x0A bana-balkal-jina
+        yinya
+        kujil 0x08 junkay
+        yala
+            wuljil
+            0x08 bana-balkal-jina
+            0x20 bana-balkal-jina
+            0x08 bana-balkal-jina
+            yinya
+            bana-balkal-jina
+        kunbayn
+    kunbayn
+kunbayn

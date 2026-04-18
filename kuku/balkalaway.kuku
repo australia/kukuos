@@ -1,0 +1,120 @@
+# balkalaway
+
+balkalaway cmd-kaday
+    "kaday, bama!\n" yanyil-balkal-kuku
+kunbayn
+
+balkalaway cmd-binal
+    0x0A yanyil-daya-baya
+    "Yalanji\n" yanyil-balkal-kuku
+    0x0F yanyil-daya-baya
+    "  dukurr : jirakal\n" yanyil-balkal-kuku
+    "  baya   : warri\n"   yanyil-balkal-kuku
+    "  miyil  : 80x25\n"   yanyil-balkal-kuku
+    "  milka  : ngunnga\n" yanyil-balkal-kuku
+kunbayn
+
+balkalaway cmd-jalngka
+    yanyil-jalngka
+kunbayn
+
+balkalaway cmd-kunbayn
+    0x0E yanyil-daya-baya
+    "kunbayn.\n" yanyil-balkal-kuku
+    kiway
+    yabarrka
+        warngku
+    kunbayn
+kunbayn
+
+balkalaway cmd-unknown
+    0x0C yanyil-daya-baya
+    "binal kari: " yanyil-balkal-kuku
+    0x0F yanyil-daya-baya
+    wararra-ngandal yanyil-balkal-kuku
+    0x0A yanyil-balkal-jina
+kunbayn
+
+balkalaway balkalaway-babaji
+    0 wararra-line-len !
+    yabarrka
+        milka-mana-jina
+        kujil 0x0A junkay
+        yala
+            wuljil
+            0x0A yanyil-balkal-jina
+            0
+            wararra-ngandal wararra-line-len @ muru
+            c!
+            janay
+        kunbayn
+        kujil 0x08 junkay
+        yala
+            wuljil
+            wararra-line-len @ 0 jirray
+            yala
+                wararra-line-len @ 1 dumbarril wararra-line-len !
+                0x08 yanyil-balkal-jina
+            kunbayn
+            yinya
+            wararra-line-len @ 255 buban
+            yala
+                kujil
+                wararra-ngandal wararra-line-len @ muru
+                c!
+                wararra-line-len @ 1 muru wararra-line-len !
+                kujil yanyil-balkal-jina
+                wuljil
+                yinya
+                wuljil
+            kunbayn
+        kunbayn
+    kunbayn
+kunbayn
+
+balkalaway balkalaway-dispatch
+    yabarrka
+        wararra-ngandal c@ 0 junkay
+        yala
+            janay
+        kunbayn
+        wararra-ngandal "kaday" wararra-jambul
+        yala
+            cmd-kaday
+            janay
+        kunbayn
+        wararra-ngandal "binal" wararra-jambul
+        yala
+            cmd-binal
+            janay
+        kunbayn
+        wararra-ngandal "jalngka" wararra-jambul
+        yala
+            cmd-jalngka
+            janay
+        kunbayn
+        wararra-ngandal "kunbayn" wararra-jambul
+        yala
+            cmd-kunbayn
+            janay
+        kunbayn
+        wararra-ngandal "wari" wararra-jambul
+        yala
+            wari-ngunnga
+            janay
+        kunbayn
+        cmd-unknown
+        janay
+    kunbayn
+kunbayn
+
+balkalaway balkalaway-warri
+    yabarrka
+        0x0B yanyil-daya-baya
+        "yalanji" yanyil-balkal-kuku
+        0x0F yanyil-daya-baya
+        "> " yanyil-balkal-kuku
+        balkalaway-babaji
+        balkalaway-dispatch
+    kunbayn
+kunbayn

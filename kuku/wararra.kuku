@@ -1,0 +1,45 @@
+# wararra
+
+wararra wararra-ngandal
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    0 0
+nandal
+
+wararra wararra-line-len      0 0 0 0 nandal
+wararra wararra-tmp-yala      0 0 0 0 nandal
+wararra wararra-tmp-yinya     0 0 0 0 nandal
+
+balkalaway wararra-jambul
+    wararra-tmp-yinya !
+    wararra-tmp-yala !
+    yabarrka
+        wararra-tmp-yala @ c@
+        wararra-tmp-yinya @ c@
+        junkay kari
+        yala
+            0 janay
+        kunbayn
+        wararra-tmp-yala @ c@
+        0 junkay
+        yala
+            1 janay
+        kunbayn
+        wararra-tmp-yala @ 1 muru wararra-tmp-yala !
+        wararra-tmp-yinya @ 1 muru wararra-tmp-yinya !
+    kunbayn
+kunbayn
