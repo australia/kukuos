@@ -1,0 +1,167 @@
+# ed25519-point
+
+
+wararra wararra-pt-2d
+    0x59 0xf1 0xb2 0x26 0x94 0x9b 0xd6 0xeb 0x56 0xb1 0x83 0x82 0x9a 0x14 0xe0 0x00
+    0x30 0xd1 0xf3 0xee 0xf2 0x80 0x8e 0x19 0xe7 0xfc 0xdf 0x56 0xdc 0xd9 0x06 0x24
+nandal
+
+
+wararra-bss wararra-pt-A    32
+wararra-bss wararra-pt-B    32
+wararra-bss wararra-pt-C    32
+wararra-bss wararra-pt-D    32
+wararra-bss wararra-pt-E    32
+wararra-bss wararra-pt-F    32
+wararra-bss wararra-pt-G    32
+wararra-bss wararra-pt-H    32
+wararra-bss wararra-pt-t1   32
+wararra-bss wararra-pt-t2   32
+
+wararra wararra-pt-zero
+    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-pt-qX  0 0 0 0 nandal
+wararra wararra-pt-qY  0 0 0 0 nandal
+wararra wararra-pt-qZ  0 0 0 0 nandal
+wararra wararra-pt-qT  0 0 0 0 nandal
+wararra wararra-pt-pX  0 0 0 0 nandal
+wararra wararra-pt-pY  0 0 0 0 nandal
+wararra wararra-pt-pZ  0 0 0 0 nandal
+wararra wararra-pt-pT  0 0 0 0 nandal
+wararra wararra-pt-rX  0 0 0 0 nandal
+wararra wararra-pt-rY  0 0 0 0 nandal
+wararra wararra-pt-rZ  0 0 0 0 nandal
+wararra wararra-pt-rT  0 0 0 0 nandal
+
+
+balkalaway pt-add
+    wararra-pt-qT !
+    wararra-pt-qZ !
+    wararra-pt-qY !
+    wararra-pt-qX !
+    wararra-pt-pT !
+    wararra-pt-pZ !
+    wararra-pt-pY !
+    wararra-pt-pX !
+    wararra-pt-rT !
+    wararra-pt-rZ !
+    wararra-pt-rY !
+    wararra-pt-rX !
+
+    wararra-pt-t1 wararra-pt-pY @ wararra-pt-pX @ fe-sub
+    wararra-pt-t2 wararra-pt-qY @ wararra-pt-qX @ fe-sub
+    wararra-pt-A  wararra-pt-t1 wararra-pt-t2 fe-mul
+
+    wararra-pt-t1 wararra-pt-pY @ wararra-pt-pX @ fe-add
+    wararra-pt-t2 wararra-pt-qY @ wararra-pt-qX @ fe-add
+    wararra-pt-B  wararra-pt-t1 wararra-pt-t2 fe-mul
+
+    wararra-pt-t1 wararra-pt-pT @ wararra-pt-qT @ fe-mul
+    wararra-pt-C  wararra-pt-t1 wararra-pt-2d fe-mul
+
+    wararra-pt-t1 wararra-pt-pZ @ wararra-pt-qZ @ fe-mul
+    wararra-pt-D  wararra-pt-t1 wararra-pt-t1 fe-add
+
+    wararra-pt-E wararra-pt-B wararra-pt-A fe-sub
+    wararra-pt-F wararra-pt-D wararra-pt-C fe-sub
+    wararra-pt-G wararra-pt-D wararra-pt-C fe-add
+    wararra-pt-H wararra-pt-B wararra-pt-A fe-add
+
+    wararra-pt-rX @ wararra-pt-E wararra-pt-F fe-mul
+    wararra-pt-rY @ wararra-pt-G wararra-pt-H fe-mul
+    wararra-pt-rZ @ wararra-pt-F wararra-pt-G fe-mul
+    wararra-pt-rT @ wararra-pt-E wararra-pt-H fe-mul
+kunbayn
+
+
+balkalaway pt-double
+    wararra-pt-pT !
+    wararra-pt-pZ !
+    wararra-pt-pY !
+    wararra-pt-pX !
+    wararra-pt-rT !
+    wararra-pt-rZ !
+    wararra-pt-rY !
+    wararra-pt-rX !
+
+    wararra-pt-A wararra-pt-pX @ wararra-pt-pX @ fe-mul
+    wararra-pt-B wararra-pt-pY @ wararra-pt-pY @ fe-mul
+    wararra-pt-t1 wararra-pt-pZ @ wararra-pt-pZ @ fe-mul
+    wararra-pt-C wararra-pt-t1 wararra-pt-t1 fe-add
+
+    wararra-pt-D wararra-pt-zero wararra-pt-A fe-sub
+
+    wararra-pt-t1 wararra-pt-pX @ wararra-pt-pY @ fe-add
+    wararra-pt-t2 wararra-pt-t1 wararra-pt-t1 fe-mul
+    wararra-pt-t1 wararra-pt-t2 wararra-pt-A fe-sub
+    wararra-pt-E wararra-pt-t1 wararra-pt-B fe-sub
+
+    wararra-pt-G wararra-pt-D wararra-pt-B fe-add
+    wararra-pt-F wararra-pt-G wararra-pt-C fe-sub
+    wararra-pt-H wararra-pt-D wararra-pt-B fe-sub
+
+    wararra-pt-rX @ wararra-pt-E wararra-pt-F fe-mul
+    wararra-pt-rY @ wararra-pt-G wararra-pt-H fe-mul
+    wararra-pt-rZ @ wararra-pt-F wararra-pt-G fe-mul
+    wararra-pt-rT @ wararra-pt-E wararra-pt-H fe-mul
+kunbayn
+
+
+wararra wararra-pt-base-X
+    0x1a 0xd5 0x25 0x8f 0x60 0x2d 0x56 0xc9 0xb2 0xa7 0x25 0x95 0x60 0xc7 0x2c 0x69
+    0x5c 0xdc 0xd6 0xfd 0x31 0xe2 0xa4 0xc0 0xfe 0x53 0x6e 0xcd 0xd3 0x36 0x69 0x21
+nandal
+
+wararra wararra-pt-base-Y
+    0x58 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66
+    0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66
+nandal
+
+wararra wararra-pt-base-Z
+    0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+nandal
+
+wararra-bss wararra-pt-base-T  32
+
+wararra-bss wararra-pt-res-X  32
+wararra-bss wararra-pt-res-Y  32
+wararra-bss wararra-pt-res-Z  32
+wararra-bss wararra-pt-res-T  32
+
+wararra-bss wararra-pt-zinv   32
+wararra-bss wararra-pt-ax     32
+wararra-bss wararra-pt-ay     32
+
+
+balkalaway jakalbaku-warri
+    wararra-pt-base-T wararra-pt-base-X wararra-pt-base-Y fe-mul
+
+    wararra-pt-res-X wararra-pt-res-Y wararra-pt-res-Z wararra-pt-res-T
+    wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z wararra-pt-base-T
+    pt-double
+
+    wararra-pt-zinv wararra-pt-res-Z fe-invert
+    wararra-pt-ax wararra-pt-res-X wararra-pt-zinv fe-mul
+    wararra-pt-ay wararra-pt-res-Y wararra-pt-zinv fe-mul
+    wararra-pt-ax fe-canon
+    wararra-pt-ay fe-canon
+    wararra-pt-ax fe-balkal
+    wararra-pt-ay fe-balkal
+
+    wararra-pt-res-X wararra-pt-res-Y wararra-pt-res-Z wararra-pt-res-T
+    wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z wararra-pt-base-T
+    wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z wararra-pt-base-T
+    pt-add
+
+    wararra-pt-zinv wararra-pt-res-Z fe-invert
+    wararra-pt-ax wararra-pt-res-X wararra-pt-zinv fe-mul
+    wararra-pt-ay wararra-pt-res-Y wararra-pt-zinv fe-mul
+    wararra-pt-ax fe-canon
+    wararra-pt-ay fe-canon
+    wararra-pt-ax fe-balkal
+    wararra-pt-ay fe-balkal
+kunbayn
