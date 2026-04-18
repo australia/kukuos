@@ -1,0 +1,130 @@
+# ed25519-sign
+
+
+wararra wararra-ed-a-clamped
+    0x30 0x7c 0x83 0x86 0x4f 0x28 0x33 0xcb 0x42 0x7a 0x2e 0xf1 0xc0 0x0a 0x01 0x3c
+    0xfd 0xff 0x27 0x68 0xd9 0x80 0xc0 0xa3 0xa5 0x20 0xf0 0x06 0x90 0x4d 0xe9 0x4f
+nandal
+
+wararra wararra-ed-prefix
+    0x9b 0x4f 0x0a 0xfe 0x28 0x0b 0x74 0x6a 0x77 0x86 0x84 0xe7 0x54 0x42 0x50 0x20
+    0x57 0xb7 0x47 0x3a 0x03 0xf0 0x8f 0x96 0xf5 0xa3 0x8e 0x92 0x87 0xe0 0x1f 0x8f
+nandal
+
+wararra wararra-ed-A-enc
+    0xd7 0x5a 0x98 0x01 0x82 0xb1 0x0a 0xb7 0xd5 0x4b 0xfe 0xd3 0xc9 0x64 0x07 0x3a
+    0x0e 0xe1 0x72 0xf3 0xda 0xa6 0x23 0x25 0xaf 0x02 0x1a 0x68 0xf7 0x07 0x51 0x1a
+nandal
+
+
+wararra-bss wararra-ed-hash-canon   64
+wararra-bss wararra-ed-r            32
+wararra-bss wararra-ed-k            32
+wararra-bss wararra-ed-S            32
+wararra-bss wararra-ed-R-enc        32
+wararra-bss wararra-ed-RX           32
+wararra-bss wararra-ed-RY           32
+wararra-bss wararra-ed-RZ           32
+wararra-bss wararra-ed-RT           32
+wararra-bss wararra-ed-concat       128
+wararra-bss wararra-ed-test-sig     64
+
+
+wararra wararra-ed-mlen     0 0 0 0 nandal
+wararra wararra-ed-maddr    0 0 0 0 nandal
+wararra wararra-ed-sigaddr  0 0 0 0 nandal
+wararra wararra-ed-i        0 0 0 0 nandal
+
+
+balkalaway ed-sign
+    wararra-ed-sigaddr !
+    wararra-ed-mlen !
+    wararra-ed-maddr !
+
+    0 wararra-ed-i !
+    yabarrka
+        wararra-ed-i @ 32 junkay yala janay kunbayn
+        wararra-ed-prefix wararra-ed-i @ muru c@
+        wararra-ed-concat wararra-ed-i @ muru c!
+        wararra-ed-i @ 1 muru wararra-ed-i !
+    kunbayn
+    0 wararra-ed-i !
+    yabarrka
+        wararra-ed-i @ wararra-ed-mlen @ junkay yala janay kunbayn
+        wararra-ed-maddr @ wararra-ed-i @ muru c@
+        wararra-ed-concat 32 muru wararra-ed-i @ muru c!
+        wararra-ed-i @ 1 muru wararra-ed-i !
+    kunbayn
+
+    wararra-ed-concat 32 wararra-ed-mlen @ muru sh512-hash-short
+    wararra-ed-hash-canon sh512-export-canon
+    wararra-ed-r wararra-ed-hash-canon sc-reduce
+
+    wararra-ed-r
+    wararra-ed-RX wararra-ed-RY wararra-ed-RZ wararra-ed-RT
+    wararra-pt-base-X wararra-pt-base-Y wararra-pt-base-Z wararra-pt-base-T
+    pt-smul
+
+    wararra-ed-RX wararra-ed-RY wararra-ed-RZ
+    wararra-ed-R-enc
+    pt-compress
+
+    0 wararra-ed-i !
+    yabarrka
+        wararra-ed-i @ 32 junkay yala janay kunbayn
+        wararra-ed-R-enc wararra-ed-i @ muru c@
+        wararra-ed-concat wararra-ed-i @ muru c!
+        wararra-ed-i @ 1 muru wararra-ed-i !
+    kunbayn
+    0 wararra-ed-i !
+    yabarrka
+        wararra-ed-i @ 32 junkay yala janay kunbayn
+        wararra-ed-A-enc wararra-ed-i @ muru c@
+        wararra-ed-concat 32 muru wararra-ed-i @ muru c!
+        wararra-ed-i @ 1 muru wararra-ed-i !
+    kunbayn
+    0 wararra-ed-i !
+    yabarrka
+        wararra-ed-i @ wararra-ed-mlen @ junkay yala janay kunbayn
+        wararra-ed-maddr @ wararra-ed-i @ muru c@
+        wararra-ed-concat 64 muru wararra-ed-i @ muru c!
+        wararra-ed-i @ 1 muru wararra-ed-i !
+    kunbayn
+
+    wararra-ed-concat 64 wararra-ed-mlen @ muru sh512-hash-short
+    wararra-ed-hash-canon sh512-export-canon
+    wararra-ed-k wararra-ed-hash-canon sc-reduce
+
+    wararra-ed-S wararra-ed-k wararra-ed-a-clamped wararra-ed-r sc-muladd
+
+    0 wararra-ed-i !
+    yabarrka
+        wararra-ed-i @ 32 junkay yala janay kunbayn
+        wararra-ed-R-enc wararra-ed-i @ muru c@
+        wararra-ed-sigaddr @ wararra-ed-i @ muru c!
+        wararra-ed-i @ 1 muru wararra-ed-i !
+    kunbayn
+    0 wararra-ed-i !
+    yabarrka
+        wararra-ed-i @ 32 junkay yala janay kunbayn
+        wararra-ed-S wararra-ed-i @ muru c@
+        wararra-ed-sigaddr @ 32 muru wararra-ed-i @ muru c!
+        wararra-ed-i @ 1 muru wararra-ed-i !
+    kunbayn
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    wararra-pt-base-T wararra-pt-base-X wararra-pt-base-Y fe-mul
+
+    wararra-ed-concat 0 wararra-ed-test-sig ed-sign
+
+    0 wararra-ed-i !
+    yabarrka
+        wararra-ed-i @ 64 junkay yala janay kunbayn
+        wararra-ed-test-sig wararra-ed-i @ muru c@ sh512-balkal-byte
+        wararra-ed-i @ 1 muru wararra-ed-i !
+    kunbayn
+    0x0a wararra-sh512-ch c!
+    1 wararra-sh512-ch 1 bama-balkal wuljil
+kunbayn
