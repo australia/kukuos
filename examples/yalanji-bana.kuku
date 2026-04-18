@@ -1,0 +1,153 @@
+# yalanji-bana
+
+
+wararra wararra-banner-a  "SSH-2.0-Yalanji_0.1 kuku-bama\r\n" 0 nandal
+wararra wararra-banner-a-n  31 0 0 0 nandal
+
+wararra wararra-banner-b  " Yalanji-bana \r\n" 0 nandal
+wararra wararra-banner-b-n  16 0 0 0 nandal
+
+wararra wararra-banner-c  "kaday, bama! yala Yalanji.\r\n" 0 nandal
+wararra wararra-banner-c-n  28 0 0 0 nandal
+
+wararra wararra-banner-d  "kuku: kaday binal kunbayn\r\n\r\n" 0 nandal
+wararra wararra-banner-d-n  29 0 0 0 nandal
+
+wararra wararra-prompt  "yalanji> " 0 nandal
+wararra wararra-prompt-n  9 0 0 0 nandal
+
+wararra wararra-rep-kaday  "kaday, bama!\r\n" 0 nandal
+wararra wararra-rep-kaday-n  14 0 0 0 nandal
+
+wararra wararra-rep-binal  "Yalanji-bana kuku\r\n" 0 nandal
+wararra wararra-rep-binal-n  19 0 0 0 nandal
+
+wararra wararra-rep-kari-a  "binal kari: " 0 nandal
+wararra wararra-rep-kari-a-n  12 0 0 0 nandal
+
+wararra wararra-rep-kari-b  "\r\n" 0 nandal
+wararra wararra-rep-kari-b-n  2 0 0 0 nandal
+
+wararra wararra-rep-kunbayn  "kunbayn.\r\n" 0 nandal
+wararra wararra-rep-kunbayn-n  10 0 0 0 nandal
+
+wararra wararra-kuku-kaday  "kaday" 0 nandal
+wararra wararra-kuku-kaday-n  5 0 0 0 nandal
+wararra wararra-kuku-binal  "binal" 0 nandal
+wararra wararra-kuku-binal-n  5 0 0 0 nandal
+wararra wararra-kuku-kunbayn  "kunbayn" 0 nandal
+wararra wararra-kuku-kunbayn-n  7 0 0 0 nandal
+
+wararra wararra-bana-n  0 0 0 0 nandal
+wararra wararra-streq-n  0 0 0 0 nandal
+wararra wararra-streq-b  0 0 0 0 nandal
+wararra wararra-streq-ret  0 0 0 0 nandal
+wararra-bss wararra-bana-line  128
+
+
+balkalaway bana-streq-n
+    1 wararra-streq-ret !
+    wararra-streq-n !
+    wararra-streq-b !
+    yabarrka
+        wararra-streq-n @ 0 junkay yala janay kunbayn
+        kujil c@
+        wararra-streq-b @ c@
+        junkay kari yala
+            0 wararra-streq-ret !
+            janay
+        kunbayn
+        1 muru
+        wararra-streq-b @ 1 muru wararra-streq-b !
+        wararra-streq-n @ 1 dumbarril wararra-streq-n !
+    kunbayn
+    wuljil
+    wararra-streq-ret @
+kunbayn
+
+
+balkalaway bana-babaji-line
+    0 wararra-bana-n !
+    yabarrka
+        wararra-bana-n @ 127 jirray yala janay kunbayn
+        0 wararra-bana-line wararra-bana-n @ muru 1 bama-babaji
+        kujil 0 buban yala wuljil janay kunbayn
+        kujil 0 junkay yala wuljil janay kunbayn
+        wuljil
+        wararra-bana-line wararra-bana-n @ muru c@
+        kujil 0x0A junkay yala
+            wuljil
+            janay
+        kunbayn
+        kujil 0x0D junkay yala
+            wuljil
+            janay
+        kunbayn
+        wuljil
+        wararra-bana-n @ 1 muru wararra-bana-n !
+    kunbayn
+    wararra-bana-n @
+kunbayn
+
+
+balkalaway bana-balkal-banner
+    1 wararra-banner-a wararra-banner-a-n @ bama-balkal wuljil
+    1 wararra-banner-b wararra-banner-b-n @ bama-balkal wuljil
+    1 wararra-banner-c wararra-banner-c-n @ bama-balkal wuljil
+    1 wararra-banner-d wararra-banner-d-n @ bama-balkal wuljil
+kunbayn
+
+
+balkalaway bana-balkal-prompt
+    1 wararra-prompt wararra-prompt-n @ bama-balkal wuljil
+kunbayn
+
+
+balkalaway bana-balkal-kari
+    1 wararra-rep-kari-a wararra-rep-kari-a-n @ bama-balkal wuljil
+    1 wararra-bana-line wararra-bana-n @ bama-balkal wuljil
+    1 wararra-rep-kari-b wararra-rep-kari-b-n @ bama-balkal wuljil
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    bana-balkal-banner
+    yabarrka
+        bana-balkal-prompt
+        bana-babaji-line
+        kujil 0 junkay yala
+            wuljil
+            janay
+        kunbayn
+
+        kujil wararra-kuku-kaday-n @ junkay
+        wararra-bana-line wararra-kuku-kaday wararra-kuku-kaday-n @ bana-streq-n
+        &
+        yala
+            wuljil
+            1 wararra-rep-kaday wararra-rep-kaday-n @ bama-balkal wuljil
+            yinya
+
+            kujil wararra-kuku-binal-n @ junkay
+            wararra-bana-line wararra-kuku-binal wararra-kuku-binal-n @ bana-streq-n
+            &
+            yala
+                wuljil
+                1 wararra-rep-binal wararra-rep-binal-n @ bama-balkal wuljil
+                yinya
+
+                kujil wararra-kuku-kunbayn-n @ junkay
+                wararra-bana-line wararra-kuku-kunbayn wararra-kuku-kunbayn-n @ bana-streq-n
+                &
+                yala
+                    wuljil
+                    1 wararra-rep-kunbayn wararra-rep-kunbayn-n @ bama-balkal wuljil
+                    janay
+                    yinya
+                    wuljil
+                    bana-balkal-kari
+                kunbayn
+            kunbayn
+        kunbayn
+    kunbayn
+kunbayn
