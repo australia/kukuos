@@ -94,7 +94,7 @@ qemu-system-i386 -kernel yalanji.elf -display none \
 Prove self-hosting in one command:
 
 ```
-./kuku-bama/ngunnga --linux /tmp/ngunnga-new kuku-bama/ngunnga.kuku
+./kuku-bama/ngunnga --bama /tmp/ngunnga-new kuku-bama/ngunnga.kuku
 cmp kuku-bama/ngunnga /tmp/ngunnga-new && echo "fixed point reached"
 ```
 
@@ -152,9 +152,10 @@ wararra-bss NAME 262144               # zero-filled BSS block
 
 ## Reading and writing files
 
-Kuku programs can be compiled for Linux (flag `--linux`) instead of as a
-bare-metal kernel.  In that mode you get the Linux x86 syscall ABI, which
-gives you file I/O via four words:
+Kuku programs can be compiled for Linux (flag `--bama` — Kuku Yalanji for
+"person", i.e. user-space) instead of as a bare-metal kernel.  In that
+mode you get the Linux x86 syscall ABI, which gives you file I/O via four
+words:
 
 | Word              | Signature                   | Syscall     |
 |-------------------|-----------------------------|-------------|
@@ -163,15 +164,16 @@ gives you file I/O via four words:
 | `bama-babaji`     | `( fd buf n -- read )`      | `read(2)`   |
 | `bama-nandal`     | `( fd -- ret )`             | `close(2)`  |
 
-The entry-point word of a `--linux` program is `jakalbaku-warri`.
+The entry-point word of a `--bama` program is `jakalbaku-warri`.  The same
+word is the entry for kernel-mode (no flag) output.
 
 A minimal round-trip — write bytes to a file, read them back, print them —
 lives at [`examples/nganjal.kuku`](examples/nganjal.kuku):
 
 ```kuku
 wararra wararra-path      "/tmp/kaday.txt" 0  nandal
-wararra wararra-message   "kaday, bama! from kuku.\n" 0  nandal
-wararra wararra-message-n   24  nandal
+wararra wararra-message   "kaday, bama! kuku.\n" 0  nandal
+wararra wararra-message-n   19  nandal
 wararra wararra-n  0 0 0 0  nandal
 wararra-bss wararra-buf  256
 
@@ -193,13 +195,13 @@ kunbayn
 Build and run it:
 
 ```
-$ ./kuku-bama/ngunnga --linux nganjal examples/nganjal.kuku
+$ ./kuku-bama/ngunnga --bama nganjal examples/nganjal.kuku
 $ ./nganjal
-kaday, bama! from kuku.
+kaday, bama! kuku.
 
 $ xxd /tmp/kaday.txt
-00000000: 6b61 6461 792c 2062 616d 6121 2066 726f  kaday, bama! fro
-00000010: 6d20 6b75 6b75 2e0a                      m kuku..
+00000000: 6b61 6461 792c 2062 616d 6121 206b 756b  kaday, bama! kuk
+00000010: 752e 0a                                  u..
 ```
 
 The same program is what the Kuku compiler itself uses internally to read
@@ -229,7 +231,7 @@ scale.  Note that the bare-metal kernel (the one you boot over SSH) does
   the current binary and confirm the fixed point before committing:
 
   ```
-  ./kuku-bama/ngunnga --linux /tmp/new kuku-bama/ngunnga.kuku
+  ./kuku-bama/ngunnga --bama /tmp/new kuku-bama/ngunnga.kuku
   cmp kuku-bama/ngunnga /tmp/new && mv /tmp/new kuku-bama/ngunnga
   ```
 

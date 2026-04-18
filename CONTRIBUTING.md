@@ -44,7 +44,7 @@ self-hosted seed is the only way into the project.  If you change
 `kuku-bama/ngunnga.kuku`, you must rebuild the seed:
 
 ```
-./kuku-bama/ngunnga --linux /tmp/new kuku-bama/ngunnga.kuku
+./kuku-bama/ngunnga --bama /tmp/new kuku-bama/ngunnga.kuku
 cmp kuku-bama/ngunnga /tmp/new && mv /tmp/new kuku-bama/ngunnga
 ```
 
@@ -86,7 +86,7 @@ Please don't:
 ## Submitting a change
 
 1. Fork + branch.  Keep PRs focused on one thing.
-2. Make sure `./kuku-bama/ngunnga --linux /tmp/new kuku-bama/ngunnga.kuku &&
+2. Make sure `./kuku-bama/ngunnga --bama /tmp/new kuku-bama/ngunnga.kuku &&
    cmp kuku-bama/ngunnga /tmp/new` still passes.
 3. Rebuild the kernel and boot-test locally:
    ```

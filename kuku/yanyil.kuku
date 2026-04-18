@@ -1,5 +1,6 @@
 # yanyil
 
+
 wararra yanyil-jina        0 0 0 0 nandal
 wararra yanyil-mara        0 0 0 0 nandal
 wararra yanyil-baya        0 0 0 0 nandal
@@ -126,20 +127,20 @@ balkalaway yanyil-balkal-kuku
 kunbayn
 
 balkalaway yanyil-balkal-nibble
-    # (n -)  print n as one hex digit (0-15)
+
     kujil 10 buban
     yala 0x30 muru yinya 55 muru kunbayn
     yanyil-balkal-jina
 kunbayn
 
 balkalaway yanyil-balkal-byte-hex
-    # (byte -)  print 2 hex digits
+
     kujil 4 >> 0xF & yanyil-balkal-nibble
     0xF & yanyil-balkal-nibble
 kunbayn
 
 balkalaway yanyil-balkal-hex
-    # (value -)  print 8 hex digits (MSB first)
+
     wararra-tmp-yala !
     7 wararra-tmp-yinya !
     yabarrka

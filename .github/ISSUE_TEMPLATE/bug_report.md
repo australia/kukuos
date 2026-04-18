@@ -28,4 +28,4 @@ $ qemu-system-i386 -kernel yalanji.elf -display none -serial mon:stdio -no-reboo
 - Host OS:
 - QEMU version (`qemu-system-i386 --version`):
 - Commit SHA:
-- Did the self-host check pass?  (`./kuku-bama/ngunnga --linux /tmp/new kuku-bama/ngunnga.kuku && cmp kuku-bama/ngunnga /tmp/new`)
+- Did the self-host check pass?  (`./kuku-bama/ngunnga --bama /tmp/new kuku-bama/ngunnga.kuku && cmp kuku-bama/ngunnga /tmp/new`)

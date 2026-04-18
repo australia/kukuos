@@ -1,13 +1,5 @@
-# ngunnga.kuku -- the Kuku compiler, in Kuku.
-#
-# Compiles .kuku source into a multiboot1 i386 kernel ELF.
-# Currently produces only kernel-mode output (matches `ngunnga.py` without --linux).
-# Self-compilation (Linux-mode output) is a future extension.
+# ngunnga
 
-
-# ============================================================================
-# global buffers
-# ============================================================================
 
 wararra-bss ngunnga-wararra           262144
 wararra     ngunnga-wararra-jina      maru-maru 4 nandal
@@ -16,7 +8,6 @@ wararra-bss ngunnga-source            262144
 wararra     ngunnga-source-narmba     maru-maru 4 nandal
 wararra     ngunnga-source-jina       maru-maru 4 nandal
 
-# symbol table -- parallel arrays, max 1024 entries
 wararra-bss ngunnga-sym-name-off      4096
 wararra-bss ngunnga-sym-kind          4096
 wararra-bss ngunnga-sym-addr          4096
@@ -24,31 +15,26 @@ wararra     ngunnga-sym-wangkanil     maru-maru 4 nandal
 wararra-bss ngunnga-sym-names         32768
 wararra     ngunnga-sym-names-jina    maru-maru 4 nandal
 
-# fixup table -- max 8192 entries
 wararra-bss ngunnga-fix-off           32768
 wararra-bss ngunnga-fix-kind          32768
 wararra-bss ngunnga-fix-key           32768
 wararra     ngunnga-fix-wangkanil     maru-maru 4 nandal
 
-# string pool -- max 1024 strings
 wararra-bss ngunnga-str-off           4096
 wararra     ngunnga-str-wangkanil     maru-maru 4 nandal
 wararra-bss ngunnga-str-pool          65536
 wararra     ngunnga-str-pool-jina     maru-maru 4 nandal
 
-# block stack -- max 128 nested blocks
 wararra-bss ngunnga-blk-kind          512
 wararra-bss ngunnga-blk-a             512
 wararra-bss ngunnga-blk-b             512
 wararra     ngunnga-blk-wangkanil     maru-maru 4 nandal
 
-# current token
 wararra     ngunnga-tok-kind          maru-maru 4 nandal
 wararra     ngunnga-tok-num           maru-maru 4 nandal
 wararra-bss ngunnga-tok-text          512
 wararra     ngunnga-tok-text-narmba   maru-maru 4 nandal
 
-# scratch
 wararra ngunnga-tmp-a             maru-maru 4       nandal
 wararra ngunnga-tmp-b             maru-maru 4       nandal
 wararra ngunnga-tmp-i             maru-maru 4       nandal
@@ -67,11 +53,6 @@ wararra-bss ngunnga-bss-name-idx  512
 wararra-bss ngunnga-bss-size      512
 wararra     ngunnga-bss-wangkanil maru-maru 4 nandal
 
-
-# ============================================================================
-# little word literals we need to compare against
-# ============================================================================
-
 wararra ngunnga-kuku-balkalaway   "balkalaway" 0  nandal
 wararra ngunnga-kuku-wararra      "wararra" 0     nandal
 wararra ngunnga-kuku-nandal       "nandal" 0      nandal
@@ -82,22 +63,17 @@ wararra ngunnga-kuku-yabarrka     "yabarrka" 0    nandal
 wararra ngunnga-kuku-janay        "janay" 0       nandal
 wararra ngunnga-kuku-marumaru     "maru-maru" 0   nandal
 wararra ngunnga-kuku-entry        "jakalbaku-warri" 0 nandal
-wararra ngunnga-kuku-esp-top      "__esp_top__" 0 nandal
-wararra ngunnga-kuku-ebp-top      "__ebp_top__" 0 nandal
-wararra ngunnga-kuku-argc-sym     "__argc__" 0   nandal
-wararra ngunnga-kuku-argv-sym     "__argv__" 0   nandal
+wararra ngunnga-kuku-esp-top      "__esp__" 0 nandal
+wararra ngunnga-kuku-ebp-top      "__ebp__" 0 nandal
+wararra ngunnga-kuku-argc-sym     "__wang__" 0   nandal
+wararra ngunnga-kuku-argv-sym     "__war__" 0   nandal
 wararra ngunnga-kuku-bama-wang    "bama-wangkanil" 0 nandal
 wararra ngunnga-kuku-bama-war     "bama-wararra" 0 nandal
-wararra ngunnga-kuku-linux        "--linux" 0    nandal
+wararra ngunnga-kuku-linux        "--bama" 0    nandal
 wararra ngunnga-kuku-bss          "wararra-bss" 0 nandal
 
-
-# ============================================================================
-# helpers
-# ============================================================================
-
 balkalaway ngunnga-strlen
-    # (ptr - len)
+
     kujil
     yabarrka
         kujil c@ 0 junkay
@@ -108,8 +84,7 @@ balkalaway ngunnga-strlen
 kunbayn
 
 balkalaway ngunnga-streq
-    # (a b - 0|1)  null-terminated bytewise equality.  Uses its own
-    # scratch (streq-p / streq-q) so callers can keep state in tmp-*.
+
     ngunnga-streq-q !
     ngunnga-streq-p !
     yabarrka
@@ -125,17 +100,17 @@ balkalaway ngunnga-streq
 kunbayn
 
 balkalaway ngunnga-write-fd
-    # (fd ptr n -) drop result
+
     bama-balkal wuljil
 kunbayn
 
 balkalaway ngunnga-write-kuku-fd
-    # (fd ptr -) write null-terminated string
+
     kujil ngunnga-strlen ngunnga-write-fd
 kunbayn
 
 balkalaway ngunnga-birru
-    # (ptr -) print kuku-yalanji error, exit(1)
+
     2 "ngunnga: " 9 ngunnga-write-fd
     2 wundil ngunnga-write-kuku-fd
     2 "\n" 1 ngunnga-write-fd
@@ -143,17 +118,12 @@ balkalaway ngunnga-birru
 kunbayn
 
 balkalaway ngunnga-argv-get
-    # (i - char*)
+
     4 * bama-wararra muru @
 kunbayn
 
-
-# ============================================================================
-# output buffer emit helpers
-# ============================================================================
-
 balkalaway ngunnga-emit-jina
-    # (byte -)
+
     ngunnga-wararra ngunnga-wararra-jina @ muru c!
     ngunnga-wararra-jina @ 1 muru
     kujil ngunnga-wararra-jina !
@@ -161,12 +131,12 @@ balkalaway ngunnga-emit-jina
 kunbayn
 
 balkalaway ngunnga-emit-advance
-    # (n -)  advance virtual position by n without writing
+
     ngunnga-wararra-jina @ muru ngunnga-wararra-jina !
 kunbayn
 
 balkalaway ngunnga-emit-dword
-    # (val -)  little-endian 4 bytes
+
     kujil 0xFF & ngunnga-emit-jina
     kujil 8 >> 0xFF & ngunnga-emit-jina
     kujil 16 >> 0xFF & ngunnga-emit-jina
@@ -174,7 +144,7 @@ balkalaway ngunnga-emit-dword
 kunbayn
 
 balkalaway ngunnga-emit-bytes
-    # (ptr n -) append n bytes from ptr to output
+
     ngunnga-tmp-i !
     ngunnga-tmp-a !
     0 ngunnga-tmp-j !
@@ -188,19 +158,14 @@ balkalaway ngunnga-emit-bytes
 kunbayn
 
 balkalaway ngunnga-patch-dword
-    # (val offset -)
+
     ngunnga-wararra wundil muru
-    # stack: val addr
+
     !
 kunbayn
 
-
-# ============================================================================
-# symbol table
-# ============================================================================
-
 balkalaway ngunnga-sym-lookup
-    # (ptr - index|-1)
+
     ngunnga-tmp-k !
     0 ngunnga-tmp-i !
     -1 ngunnga-tmp-j !
@@ -222,7 +187,7 @@ balkalaway ngunnga-sym-lookup
 kunbayn
 
 balkalaway ngunnga-sym-copy-name
-    # (src-ptr -)  append null-terminated copy of src to ngunnga-sym-names
+
     yabarrka
         kujil c@
         kujil 0 junkay
@@ -237,11 +202,11 @@ balkalaway ngunnga-sym-copy-name
 kunbayn
 
 balkalaway ngunnga-sym-add
-    # (name-ptr kind - index)
+
     ngunnga-tmp-a !
     ngunnga-tmp-b !
     ngunnga-sym-wangkanil @ 1024 buban kari
-    yala "bayan sym yanji" ngunnga-birru kunbayn
+    yala "yanyi bayan" ngunnga-birru kunbayn
     ngunnga-sym-names-jina @
     ngunnga-sym-name-off ngunnga-sym-wangkanil @ 4 * muru !
     ngunnga-tmp-b @ ngunnga-sym-copy-name
@@ -254,29 +219,24 @@ balkalaway ngunnga-sym-add
 kunbayn
 
 balkalaway ngunnga-sym-set-addr
-    # (index addr -)
+
     ngunnga-tmp-a !
     4 * ngunnga-sym-addr muru
     ngunnga-tmp-a @ wundil !
 kunbayn
 
 balkalaway ngunnga-sym-get-kind
-    # (index - kind)
+
     4 * ngunnga-sym-kind muru @
 kunbayn
 
 balkalaway ngunnga-sym-get-addr
-    # (index - addr)
+
     4 * ngunnga-sym-addr muru @
 kunbayn
 
-
-# ============================================================================
-# string pool (interned, null-terminated)
-# ============================================================================
-
 balkalaway ngunnga-str-intern
-    # (ptr - pool-offset)
+
     ngunnga-tmp-a !
     -1 ngunnga-tmp-b !
     0 ngunnga-tmp-i !
@@ -318,26 +278,16 @@ balkalaway ngunnga-str-intern
     kunbayn
 kunbayn
 
-
-# ============================================================================
-# fixup table
-# ============================================================================
-
 balkalaway ngunnga-fix-add
-    # (offset kind key -)
+
     ngunnga-fix-key  ngunnga-fix-wangkanil @ 4 * muru !
     ngunnga-fix-kind ngunnga-fix-wangkanil @ 4 * muru !
     ngunnga-fix-off  ngunnga-fix-wangkanil @ 4 * muru !
     ngunnga-fix-wangkanil @ 1 muru ngunnga-fix-wangkanil !
 kunbayn
 
-
-# ============================================================================
-# block stack
-# ============================================================================
-
 balkalaway ngunnga-blk-push
-    # (kind a b -)
+
     ngunnga-blk-b    ngunnga-blk-wangkanil @ 4 * muru !
     ngunnga-blk-a    ngunnga-blk-wangkanil @ 4 * muru !
     ngunnga-blk-kind ngunnga-blk-wangkanil @ 4 * muru !
@@ -345,13 +295,13 @@ balkalaway ngunnga-blk-push
 kunbayn
 
 balkalaway ngunnga-blk-top
-    # (- index)  returns index of top block or -1 if empty
+
     ngunnga-blk-wangkanil @ 0 junkay
     yala -1 yinya ngunnga-blk-wangkanil @ 1 dumbarril kunbayn
 kunbayn
 
 balkalaway ngunnga-blk-kind-at
-    # (index - kind)
+
     4 * ngunnga-blk-kind muru @
 kunbayn
 
@@ -364,24 +314,19 @@ balkalaway ngunnga-blk-b-at
 kunbayn
 
 balkalaway ngunnga-blk-a-set
-    # (val index -)
+
     4 * ngunnga-blk-a muru
     !
 kunbayn
 
 balkalaway ngunnga-blk-b-set
-    # (val index -)
+
     4 * ngunnga-blk-b muru
     !
 kunbayn
 
-
-# ============================================================================
-# source loader
-# ============================================================================
-
 balkalaway ngunnga-source-peek
-    # (- byte|0)  byte at current read position, 0 past end
+
     ngunnga-source-jina @ ngunnga-source-narmba @ buban
     yala
         ngunnga-source ngunnga-source-jina @ muru c@
@@ -395,7 +340,7 @@ balkalaway ngunnga-source-bump
 kunbayn
 
 balkalaway ngunnga-load-file
-    # (path -) open, read all, close; append to source buffer
+
     0 bama-ngunnga
     kujil 0 buban
     yala
@@ -416,13 +361,8 @@ balkalaway ngunnga-load-file
     bama-nandal wuljil
 kunbayn
 
-
-# ============================================================================
-# tokenizer
-# ============================================================================
-
 balkalaway ngunnga-is-ws
-    # (byte - 0|1)
+
     kujil 0x20 junkay
     yala wuljil 1 yinya
         kujil 0x09 junkay
@@ -439,12 +379,12 @@ balkalaway ngunnga-is-ws
 kunbayn
 
 balkalaway ngunnga-is-digit
-    # (byte - 0|1)
+
     kujil 0x30 buban kari wundil 0x39 jirray kari &
 kunbayn
 
 balkalaway ngunnga-hex-digit
-    # (byte - value)  assumes 0-9a-fA-F; returns 0..15
+
     kujil 0x3A buban
     yala 0x30 dumbarril
     yinya
@@ -456,7 +396,7 @@ balkalaway ngunnga-hex-digit
 kunbayn
 
 balkalaway ngunnga-is-hex-digit
-    # (byte - 0|1)
+
     kujil 0x30 buban kari
     wundil kujil 0x39 jirray kari &
     wundil kujil 0x41 buban kari kujil 0x46 jirray kari & |
@@ -487,16 +427,16 @@ balkalaway ngunnga-skip-ws
 kunbayn
 
 balkalaway ngunnga-read-escape
-    # (escape-char - raw-byte)
-    kujil 0x6E junkay yala wuljil 0x0A yinya    # \n
-        kujil 0x74 junkay yala wuljil 0x09 yinya    # \t
-            kujil 0x72 junkay yala wuljil 0x0D yinya    # \r
-                kujil 0x5C junkay yala wuljil 0x5C yinya   # \\
-                    kujil 0x27 junkay yala wuljil 0x27 yinya   # \'
-                        kujil 0x22 junkay yala wuljil 0x22 yinya   # \"
-                            kujil 0x30 junkay yala wuljil 0x00 yinya   # \0
-                                kujil 0x65 junkay yala wuljil 0x1B yinya   # \e
-                                    # unknown escape, keep literal
+
+    kujil 0x6E junkay yala wuljil 0x0A yinya
+        kujil 0x74 junkay yala wuljil 0x09 yinya
+            kujil 0x72 junkay yala wuljil 0x0D yinya
+                kujil 0x5C junkay yala wuljil 0x5C yinya
+                    kujil 0x27 junkay yala wuljil 0x27 yinya
+                        kujil 0x22 junkay yala wuljil 0x22 yinya
+                            kujil 0x30 junkay yala wuljil 0x00 yinya
+                                kujil 0x65 junkay yala wuljil 0x1B yinya
+
                                 kunbayn
                             kunbayn
                         kunbayn
@@ -508,7 +448,7 @@ balkalaway ngunnga-read-escape
 kunbayn
 
 balkalaway ngunnga-tok-text-push
-    # (byte -)
+
     ngunnga-tok-text ngunnga-tok-text-narmba @ muru c!
     ngunnga-tok-text-narmba @ 1 muru ngunnga-tok-text-narmba !
 kunbayn
@@ -522,7 +462,7 @@ balkalaway ngunnga-tok-text-terminate
 kunbayn
 
 balkalaway ngunnga-lex-num-decimal
-    # source points at first digit (possibly after '-'); reads decimal until non-digit
+
     0 ngunnga-tmp-a !
     yabarrka
         ngunnga-source-peek ngunnga-is-digit kari
@@ -535,7 +475,7 @@ balkalaway ngunnga-lex-num-decimal
 kunbayn
 
 balkalaway ngunnga-lex-num-hex
-    # source points after '0x'; reads hex digits
+
     0 ngunnga-tmp-a !
     yabarrka
         ngunnga-source-peek ngunnga-is-hex-digit kari
@@ -548,7 +488,7 @@ balkalaway ngunnga-lex-num-hex
 kunbayn
 
 balkalaway ngunnga-lex-number
-    # first byte is digit or '-' followed by digit
+
     0 ngunnga-tmp-b !
     ngunnga-source-peek 0x2D junkay
     yala
@@ -564,7 +504,7 @@ balkalaway ngunnga-lex-number
             ngunnga-lex-num-hex
             yinya
             ngunnga-lex-num-decimal
-            # fold: result might be 0 followed by more digits: treat as decimal starting with 0
+
         kunbayn
         yinya
         ngunnga-lex-num-decimal
@@ -576,7 +516,7 @@ balkalaway ngunnga-lex-number
 kunbayn
 
 balkalaway ngunnga-lex-string
-    # source at opening "; read until "
+
     ngunnga-source-bump
     ngunnga-tok-text-reset
     yabarrka
@@ -600,7 +540,7 @@ balkalaway ngunnga-lex-string
 kunbayn
 
 balkalaway ngunnga-lex-char
-    # source at opening '; read one char (possibly \\X) and closing '
+
     ngunnga-source-bump
     ngunnga-source-peek 0x5C junkay
     yala
@@ -618,7 +558,7 @@ balkalaway ngunnga-lex-char
 kunbayn
 
 balkalaway ngunnga-lex-ident
-    # any sequence of non-space non-# non-quote bytes
+
     ngunnga-tok-text-reset
     yabarrka
         ngunnga-source-peek 0 junkay
@@ -635,7 +575,7 @@ balkalaway ngunnga-lex-ident
 kunbayn
 
 balkalaway ngunnga-lex
-    # fetch one token into tok-*
+
     ngunnga-skip-ws
     ngunnga-source-peek 0 junkay
     yala 0 ngunnga-tok-kind ! yinya
@@ -647,8 +587,7 @@ balkalaway ngunnga-lex
                 yala ngunnga-lex-number yinya
                     ngunnga-source-peek 0x2D junkay
                     yala
-                        # could be negative number or identifier like 'bama-kunbayn'
-                        # peek two bytes ahead -- if next is digit, it's a number
+
                         ngunnga-source-jina @ 1 muru ngunnga-source-narmba @ buban
                         yala
                             ngunnga-source ngunnga-source-jina @ 1 muru muru c@
@@ -667,13 +606,6 @@ balkalaway ngunnga-lex
         kunbayn
     kunbayn
 kunbayn
-
-
-# ============================================================================
-# prim emission -- 25 entries in one big record table
-# ============================================================================
-# record format: [name-cstr][1 byte count][count bytes]
-# terminated by a single 0 byte.
 
 wararra ngunnga-prim-records
     "kujil" 0   9  0x8B 0x45 0x00 0x83 0xED 0x04 0x89 0x45 0x00
@@ -714,9 +646,8 @@ wararra ngunnga-prim-records
     0
 nandal
 
-
 balkalaway ngunnga-try-primitive
-    # (name-ptr - 0|1)
+
     ngunnga-tmp-k !
     ngunnga-prim-records ngunnga-tmp-a !
     yabarrka
@@ -724,46 +655,41 @@ balkalaway ngunnga-try-primitive
         yala 0 janay kunbayn
         ngunnga-tmp-a @ ngunnga-tmp-k @ ngunnga-streq
         yala
-            # advance past name
+
             yabarrka
                 ngunnga-tmp-a @ c@ 0 junkay yala janay kunbayn
                 ngunnga-tmp-a @ 1 muru ngunnga-tmp-a !
             kunbayn
             ngunnga-tmp-a @ 1 muru ngunnga-tmp-a !
-            # read count
+
             ngunnga-tmp-a @ c@ ngunnga-tmp-i !
             ngunnga-tmp-a @ 1 muru ngunnga-tmp-a !
-            # emit payload
+
             ngunnga-tmp-a @ ngunnga-tmp-i @ ngunnga-emit-bytes
             1 janay
         kunbayn
-        # skip name
+
         yabarrka
             ngunnga-tmp-a @ c@ 0 junkay yala janay kunbayn
             ngunnga-tmp-a @ 1 muru ngunnga-tmp-a !
         kunbayn
         ngunnga-tmp-a @ 1 muru ngunnga-tmp-a !
-        # skip payload
+
         ngunnga-tmp-a @ c@ ngunnga-tmp-i !
         ngunnga-tmp-a @ 1 muru ngunnga-tmp-a !
         ngunnga-tmp-a @ ngunnga-tmp-i @ muru ngunnga-tmp-a !
     kunbayn
 kunbayn
 
-
-# ============================================================================
-# emit helpers for push-imm and fix-reference patterns
-# ============================================================================
-
 balkalaway ngunnga-emit-push-imm
-    # (imm32 -)  emit:  sub ebp,4 ; mov [ebp], imm32
+
     0x83 ngunnga-emit-jina  0xED ngunnga-emit-jina  0x04 ngunnga-emit-jina
     0xC7 ngunnga-emit-jina  0x45 ngunnga-emit-jina  0x00 ngunnga-emit-jina
     ngunnga-emit-dword
 kunbayn
 
 balkalaway ngunnga-emit-push-abs-sym
-    # (sym-index -)  emit push-imm placeholder and fix-add abs32 for sym
+
     ngunnga-tmp-a !
     0x83 ngunnga-emit-jina  0xED ngunnga-emit-jina  0x04 ngunnga-emit-jina
     0xC7 ngunnga-emit-jina  0x45 ngunnga-emit-jina  0x00 ngunnga-emit-jina
@@ -772,7 +698,7 @@ balkalaway ngunnga-emit-push-abs-sym
 kunbayn
 
 balkalaway ngunnga-emit-push-abs-str
-    # (pool-offset -)
+
     ngunnga-tmp-a !
     0x83 ngunnga-emit-jina  0xED ngunnga-emit-jina  0x04 ngunnga-emit-jina
     0xC7 ngunnga-emit-jina  0x45 ngunnga-emit-jina  0x00 ngunnga-emit-jina
@@ -781,7 +707,7 @@ balkalaway ngunnga-emit-push-abs-str
 kunbayn
 
 balkalaway ngunnga-emit-call-sym
-    # (sym-index -)
+
     ngunnga-tmp-a !
     0xE8 ngunnga-emit-jina
     ngunnga-wararra-jina @ 0 ngunnga-tmp-a @ ngunnga-fix-add
@@ -789,7 +715,7 @@ balkalaway ngunnga-emit-call-sym
 kunbayn
 
 balkalaway ngunnga-emit-bama-fetch
-    # (sym-idx -) emit: sub ebp,4 ; mov eax,[sym-slot] ; mov [ebp], eax
+
     ngunnga-tmp-a !
     0x83 ngunnga-emit-jina  0xED ngunnga-emit-jina  0x04 ngunnga-emit-jina
     0xA1 ngunnga-emit-jina
@@ -798,13 +724,8 @@ balkalaway ngunnga-emit-bama-fetch
     0x89 ngunnga-emit-jina  0x45 ngunnga-emit-jina  0x00 ngunnga-emit-jina
 kunbayn
 
-
-# ============================================================================
-# control-flow emission
-# ============================================================================
-
 balkalaway ngunnga-begin-yala
-    # emit   mov eax,[ebp] ; add ebp,4 ; test eax,eax ; jz rel32(patch)
+
     0x8B ngunnga-emit-jina  0x45 ngunnga-emit-jina  0x00 ngunnga-emit-jina
     0x83 ngunnga-emit-jina  0xC5 ngunnga-emit-jina  0x04 ngunnga-emit-jina
     0x85 ngunnga-emit-jina  0xC0 ngunnga-emit-jina
@@ -836,7 +757,7 @@ balkalaway ngunnga-begin-yabarrka
 kunbayn
 
 balkalaway ngunnga-emit-janay
-    # find innermost yabarrka in block stack
+
     ngunnga-blk-wangkanil @ 1 dumbarril ngunnga-tmp-i !
     -1 ngunnga-tmp-j !
     yabarrka
@@ -847,28 +768,28 @@ balkalaway ngunnga-emit-janay
         ngunnga-tmp-i @ 1 dumbarril ngunnga-tmp-i !
     kunbayn
     0xE9 ngunnga-emit-jina
-    # new head: current wararra-jina; store old chain in placeholder
+
     ngunnga-tmp-j @ ngunnga-blk-b-at
     ngunnga-emit-dword
-    # update chain head to the placeholder position we just wrote
+
     ngunnga-wararra-jina @ 4 dumbarril
     ngunnga-tmp-j @ ngunnga-blk-b-set
 kunbayn
 
 balkalaway ngunnga-end-yabarrka
-    # emit jmp back to start
+
     ngunnga-blk-top ngunnga-blk-a-at ngunnga-tmp-i !
     0xE9 ngunnga-emit-jina
     ngunnga-tmp-i @ ngunnga-wararra-jina @ 4 muru dumbarril
     ngunnga-emit-dword
-    # walk break chain and patch every link to current pos
+
     ngunnga-blk-top ngunnga-blk-b-at ngunnga-tmp-j !
     yabarrka
         ngunnga-tmp-j @ -1 junkay
         yala janay kunbayn
-        # read old link
+
         ngunnga-wararra ngunnga-tmp-j @ muru @ ngunnga-tmp-k !
-        # patch j -> current pos
+
         ngunnga-wararra-jina @ ngunnga-tmp-j @ 4 muru dumbarril
         ngunnga-tmp-j @ ngunnga-patch-dword
         ngunnga-tmp-k @ ngunnga-tmp-j !
@@ -876,10 +797,10 @@ balkalaway ngunnga-end-yabarrka
 kunbayn
 
 balkalaway ngunnga-end-yala
-    # close a yala block: patch else_patch (if still -1 means no yinya, patch to here)
+
     ngunnga-blk-top ngunnga-blk-a-at -1 junkay kari
     yala
-        # no yinya -- patch else_patch to here
+
         ngunnga-blk-top ngunnga-blk-a-at
         ngunnga-wararra-jina @ wundil 4 muru dumbarril
         ngunnga-blk-top ngunnga-blk-a-at ngunnga-patch-dword
@@ -892,22 +813,17 @@ balkalaway ngunnga-end-yala
     kunbayn
 kunbayn
 
-
-# ============================================================================
-# kunbayn-dispatch: close the innermost block according to its kind
-# ============================================================================
-
 balkalaway ngunnga-close-block
     ngunnga-blk-top ngunnga-blk-kind-at ngunnga-tmp-i !
-    ngunnga-tmp-i @ 1 junkay                      # word
+    ngunnga-tmp-i @ 1 junkay
     yala
         0xC3 ngunnga-emit-jina
         yinya
-        ngunnga-tmp-i @ 2 junkay                  # yala
+        ngunnga-tmp-i @ 2 junkay
         yala
             ngunnga-end-yala
             yinya
-            ngunnga-tmp-i @ 3 junkay              # yabarrka
+            ngunnga-tmp-i @ 3 junkay
             yala
                 ngunnga-end-yabarrka
                 yinya
@@ -917,11 +833,6 @@ balkalaway ngunnga-close-block
     kunbayn
     ngunnga-blk-wangkanil @ 1 dumbarril ngunnga-blk-wangkanil !
 kunbayn
-
-
-# ============================================================================
-# prescan -- discover balkalaway and wararra declarations
-# ============================================================================
 
 balkalaway ngunnga-prescan
     0 ngunnga-source-jina !
@@ -945,7 +856,7 @@ balkalaway ngunnga-prescan
                     yala
                         ngunnga-lex
                         ngunnga-tok-text 2 ngunnga-sym-add wuljil
-                        ngunnga-lex   # consume size token
+                        ngunnga-lex
                     kunbayn
                 kunbayn
             kunbayn
@@ -960,17 +871,11 @@ balkalaway ngunnga-prescan
     kunbayn
 kunbayn
 
-
-# ============================================================================
-# compile pass
-# ============================================================================
-
 balkalaway ngunnga-compile-token
-    # handles current token (already lexed) inside a word-body or data-body
-    # detect: are we inside a wararra block?
+
     ngunnga-blk-wangkanil @ 0 junkay
     yala
-        # at top level -- only declarations allowed
+
         ngunnga-tok-kind @ 1 junkay
         yala
             ngunnga-tok-text ngunnga-kuku-balkalaway ngunnga-streq
@@ -1006,10 +911,10 @@ balkalaway ngunnga-compile-token
             "kuku bayinda kari" ngunnga-birru
         kunbayn
         yinya
-        # inside a block
+
         ngunnga-blk-top ngunnga-blk-kind-at 4 junkay
         yala
-            # wararra: expect num, str, or maru-maru or nandal
+
             ngunnga-tok-kind @ 2 junkay
             yala
                 ngunnga-tok-num @ 0xFF &
@@ -1018,7 +923,7 @@ balkalaway ngunnga-compile-token
                 yinya
                 ngunnga-tok-kind @ 3 junkay
                 yala
-                    # copy string bytes to output
+
                     0 ngunnga-tmp-j !
                     yabarrka
                         ngunnga-tmp-j @ ngunnga-tok-text-narmba @ buban kari
@@ -1050,7 +955,7 @@ balkalaway ngunnga-compile-token
                 kunbayn
             kunbayn
             yinya
-            # inside a word / yala / yabarrka body
+
             ngunnga-tok-kind @ 2 junkay
             yala
                 ngunnga-tok-num @ ngunnga-emit-push-imm
@@ -1060,7 +965,7 @@ balkalaway ngunnga-compile-token
                     ngunnga-tok-text ngunnga-str-intern
                     ngunnga-emit-push-abs-str
                     yinya
-                    # identifier
+
                     ngunnga-tok-text ngunnga-kuku-kunbayn ngunnga-streq
                     yala ngunnga-close-block yinya
                         ngunnga-tok-text ngunnga-kuku-yala ngunnga-streq
@@ -1116,15 +1021,10 @@ balkalaway ngunnga-compile
     kunbayn
 kunbayn
 
-
-# ============================================================================
-# emit multiboot header + entry stub at start of content
-# ============================================================================
-
 wararra ngunnga-bytes-mbh
-    0x02 0xB0 0xAD 0x1B     # magic 0x1BADB002
-    0x00 0x00 0x00 0x00     # flags = 0
-    0xFE 0x4F 0x52 0xE4     # checksum
+    0x02 0xB0 0xAD 0x1B
+    0x00 0x00 0x00 0x00
+    0xFE 0x4F 0x52 0xE4
 nandal
 
 balkalaway ngunnga-emit-stub-kernel
@@ -1151,33 +1051,33 @@ balkalaway ngunnga-emit-stub-kernel
 kunbayn
 
 balkalaway ngunnga-emit-stub-linux
-    # pop eax  (argc)
+
     0x58 ngunnga-emit-jina
-    # mov [__argc__], eax
+
     0xA3 ngunnga-emit-jina
     ngunnga-wararra-jina @ 1
     ngunnga-kuku-argc-sym ngunnga-sym-lookup
     ngunnga-fix-add
     0 ngunnga-emit-dword
-    # mov [__argv__], esp
+
     0x89 ngunnga-emit-jina  0x25 ngunnga-emit-jina
     ngunnga-wararra-jina @ 1
     ngunnga-kuku-argv-sym ngunnga-sym-lookup
     ngunnga-fix-add
     0 ngunnga-emit-dword
-    # mov ebp, imm32
+
     0xBD ngunnga-emit-jina
     ngunnga-wararra-jina @ 1
     ngunnga-kuku-ebp-top ngunnga-sym-lookup
     ngunnga-fix-add
     0 ngunnga-emit-dword
-    # call jakalbaku-warri
+
     0xE8 ngunnga-emit-jina
     ngunnga-wararra-jina @ 0
     ngunnga-kuku-entry ngunnga-sym-lookup
     ngunnga-fix-add
     0 ngunnga-emit-dword
-    # xor ebx, ebx ; mov eax, 1 ; int 0x80
+
     0x31 ngunnga-emit-jina  0xDB ngunnga-emit-jina
     0xB8 ngunnga-emit-jina  0x01 ngunnga-emit-jina
     0x00 ngunnga-emit-jina  0x00 ngunnga-emit-jina  0x00 ngunnga-emit-jina
@@ -1193,19 +1093,13 @@ balkalaway ngunnga-emit-mbh-stub
     kunbayn
 kunbayn
 
-
-# ============================================================================
-# stringpool emit + fixup resolution + ELF write
-# ============================================================================
-
 balkalaway ngunnga-content-size
-    # content doesn't include ELF headers (52+32=84). Here we track position from
-    # start of content; pos 0 corresponds to multiboot header start.
+
     ngunnga-wararra-jina @ 84 dumbarril
 kunbayn
 
 balkalaway ngunnga-emit-pool
-    # copy string-pool bytes into output
+
     0 ngunnga-tmp-i !
     yabarrka
         ngunnga-tmp-i @ ngunnga-str-pool-jina @ buban kari
@@ -1217,7 +1111,7 @@ balkalaway ngunnga-emit-pool
 kunbayn
 
 balkalaway ngunnga-finalize-stacks
-    # Stack tops: sym.addr stored as buffer-offset-equivalent (content + header).
+
     ngunnga-content-size ngunnga-ch-size !
     ngunnga-kuku-ebp-top ngunnga-sym-lookup
     ngunnga-ch-size @ 16384 muru 84 muru
@@ -1237,32 +1131,31 @@ balkalaway ngunnga-resolve-fixups
         ngunnga-fix-key  ngunnga-tmp-i @ 4 * muru @ ngunnga-tmp-k !
         ngunnga-tmp-b @ 0 junkay
         yala
-            # rel32: both sym.addr and fix-offset are buffer offsets; relative
-            # distance in memory equals relative distance in buffer.
+
             ngunnga-tmp-k @ ngunnga-sym-get-addr
             ngunnga-tmp-a @ 4 muru dumbarril
             ngunnga-tmp-a @ ngunnga-patch-dword
             yinya
             ngunnga-tmp-b @ 1 junkay
             yala
-                # abs32 to sym
+
                 ngunnga-mode @ 0 junkay
                 yala
-                    # kernel: vaddr=0x00100000, subtract 84 (headers unmapped)
+
                     ngunnga-tmp-k @ ngunnga-sym-get-addr 84 dumbarril 0x00100000 muru
                     yinya
-                    # linux: vaddr=0x08048000, headers mapped (no subtraction)
+
                     ngunnga-tmp-k @ ngunnga-sym-get-addr 0x08048000 muru
                 kunbayn
                 ngunnga-tmp-a @ ngunnga-patch-dword
                 yinya
-                # abs32 to str pool
+
                 ngunnga-mode @ 0 junkay
                 yala
-                    # kernel: str-pool-base is content offset
+
                     ngunnga-str-pool-base @ ngunnga-tmp-k @ muru 0x00100000 muru
                     yinya
-                    # linux: str-pool-base stored as content offset too, so add 84
+
                     ngunnga-str-pool-base @ ngunnga-tmp-k @ muru 84 muru 0x08048000 muru
                 kunbayn
                 ngunnga-tmp-a @ ngunnga-patch-dword
@@ -1272,24 +1165,18 @@ balkalaway ngunnga-resolve-fixups
     kunbayn
 kunbayn
 
-
-
-# ============================================================================
-# ELF header output
-# ============================================================================
-
 balkalaway ngunnga-emit-byte-at
-    # (val offset -)
+
     ngunnga-wararra wundil muru c!
 kunbayn
 
 balkalaway ngunnga-patch-dword-at
-    # (val offset -)
+
     ngunnga-wararra wundil muru !
 kunbayn
 
 balkalaway ngunnga-write-elf-common
-    # common ELF ident + type/machine/version fields
+
     0x7F 0 ngunnga-emit-byte-at
     0x45 1 ngunnga-emit-byte-at
     0x4C 2 ngunnga-emit-byte-at
@@ -1311,20 +1198,20 @@ kunbayn
 
 balkalaway ngunnga-write-elf-kernel
     ngunnga-write-elf-common
-    0x0010000C 24 ngunnga-patch-dword-at                 # e_entry
-    84 56 ngunnga-patch-dword-at                         # p_offset
-    0x00100000 60 ngunnga-patch-dword-at                 # p_vaddr
-    0x00100000 64 ngunnga-patch-dword-at                 # p_paddr
+    0x0010000C 24 ngunnga-patch-dword-at
+    84 56 ngunnga-patch-dword-at
+    0x00100000 60 ngunnga-patch-dword-at
+    0x00100000 64 ngunnga-patch-dword-at
     ngunnga-file-size @ 84 dumbarril 68 ngunnga-patch-dword-at
     ngunnga-content-size 32768 muru 72 ngunnga-patch-dword-at
 kunbayn
 
 balkalaway ngunnga-write-elf-linux
     ngunnga-write-elf-common
-    0x08048054 24 ngunnga-patch-dword-at                 # e_entry = vaddr + 84
-    0 56 ngunnga-patch-dword-at                          # p_offset (headers mapped)
-    0x08048000 60 ngunnga-patch-dword-at                 # p_vaddr
-    0x08048000 64 ngunnga-patch-dword-at                 # p_paddr
+    0x08048054 24 ngunnga-patch-dword-at
+    0 56 ngunnga-patch-dword-at
+    0x08048000 60 ngunnga-patch-dword-at
+    0x08048000 64 ngunnga-patch-dword-at
     ngunnga-file-size @ 68 ngunnga-patch-dword-at
     ngunnga-content-size 84 muru 32768 muru 72 ngunnga-patch-dword-at
 kunbayn
@@ -1336,13 +1223,8 @@ balkalaway ngunnga-write-elf-header
     kunbayn
 kunbayn
 
-
-# ============================================================================
-# top-level compile driver
-# ============================================================================
-
 balkalaway ngunnga-reserve-elf-space
-    # append 84 zero bytes (room for ELF header + program header)
+
     0 ngunnga-tmp-i !
     yabarrka
         ngunnga-tmp-i @ 84 buban kari
@@ -1352,26 +1234,22 @@ balkalaway ngunnga-reserve-elf-space
     kunbayn
 kunbayn
 
-
 balkalaway jakalbaku-warri
-    # args: ngunnga [--linux] OUT.elf src1.kuku src2.kuku ...
+
     bama-wangkanil 3 buban
     yala
-        "warri: ngunnga [--linux] OUT src..." ngunnga-birru
+        "warri: ngunnga [--bama] kuku kuku-kuku..." ngunnga-birru
     kunbayn
 
-    # default kernel mode
     0 ngunnga-mode !
-    1 ngunnga-shift !               # shift = 1
+    1 ngunnga-shift !
 
-    # detect --linux flag
     1 ngunnga-argv-get ngunnga-kuku-linux ngunnga-streq
     yala
         1 ngunnga-mode !
         2 ngunnga-shift !
     kunbayn
 
-    # src files start at argv[shift + 1]
     ngunnga-shift @ 1 muru ngunnga-tmp-i !
     yabarrka
         ngunnga-tmp-i @ bama-wangkanil junkay
@@ -1387,7 +1265,6 @@ balkalaway jakalbaku-warri
 
     ngunnga-compile
 
-    # linux mode: place argc/argv slots at end of content, before string pool.
     ngunnga-mode @ 0 junkay kari
     yala
         ngunnga-kuku-argc-sym ngunnga-sym-lookup
@@ -1398,11 +1275,9 @@ balkalaway jakalbaku-warri
         0 ngunnga-emit-dword
     kunbayn
 
-    # record string-pool-base as content offset
     ngunnga-wararra-jina @ 84 dumbarril ngunnga-str-pool-base !
     ngunnga-emit-pool
 
-    # emit bss blocks: advance virtual position, set sym addrs, no physical writes
     0 ngunnga-tmp-i !
     yabarrka
         ngunnga-tmp-i @ ngunnga-bss-wangkanil @ buban kari
@@ -1418,7 +1293,6 @@ balkalaway jakalbaku-warri
     ngunnga-finalize-stacks
     ngunnga-resolve-fixups
 
-    # compute p_filesz by trimming trailing zeros from the actually-written region
     ngunnga-wararra-actual @ ngunnga-file-size !
     yabarrka
         ngunnga-file-size @ 0 junkay yala janay kunbayn
@@ -1429,10 +1303,9 @@ balkalaway jakalbaku-warri
 
     ngunnga-write-elf-header
 
-    # out-path = argv[shift]
     ngunnga-shift @ ngunnga-argv-get
     577 bama-ngunnga
-    kujil 0 buban yala wuljil "kuku: output yinya kari" ngunnga-birru kunbayn
+    kujil 0 buban yala wuljil "kuku: balkal yinya kari" ngunnga-birru kunbayn
     kujil ngunnga-wararra ngunnga-file-size @ bama-balkal wuljil
     bama-nandal wuljil
 
