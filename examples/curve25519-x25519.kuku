@@ -1,0 +1,157 @@
+# x25519
+
+
+wararra-bss wararra-x-k       32
+wararra-bss wararra-x-u       32
+wararra-bss wararra-x-x2      32
+wararra-bss wararra-x-z2      32
+wararra-bss wararra-x-x3      32
+wararra-bss wararra-x-z3      32
+wararra-bss wararra-x-A       32
+wararra-bss wararra-x-AA      32
+wararra-bss wararra-x-B       32
+wararra-bss wararra-x-BB      32
+wararra-bss wararra-x-E       32
+wararra-bss wararra-x-C       32
+wararra-bss wararra-x-D       32
+wararra-bss wararra-x-DA      32
+wararra-bss wararra-x-CB      32
+wararra-bss wararra-x-tmp1    32
+wararra-bss wararra-x-tmp2    32
+wararra-bss wararra-x-tmp3    32
+
+wararra wararra-x-one
+    0x01 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-x-zero
+    0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-x-k121665
+    0x41 0xdb 0x01 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00  0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-x-swap    0 0 0 0 nandal
+wararra wararra-x-bit     0 0 0 0 nandal
+wararra wararra-x-kt      0 0 0 0 nandal
+wararra wararra-x-ii      0 0 0 0 nandal
+wararra wararra-x-src     0 0 0 0 nandal
+wararra wararra-x-dst     0 0 0 0 nandal
+wararra wararra-x-tmp     0 0 0 0 nandal
+
+
+balkalaway x-copy32
+    wararra-x-dst !
+    wararra-x-src !
+    0 wararra-x-ii !
+    yabarrka
+        wararra-x-ii @ 8 junkay yala janay kunbayn
+        wararra-x-src @ wararra-x-ii @ 4 * muru @
+        wararra-x-dst @ wararra-x-ii @ 4 * muru !
+        wararra-x-ii @ 1 muru wararra-x-ii !
+    kunbayn
+kunbayn
+
+
+balkalaway x-cswap
+    wararra-x-dst !
+    wararra-x-src !
+    wararra-x-swap !
+    wararra-x-swap @ 0 junkay kari yala
+        0 wararra-x-ii !
+        yabarrka
+            wararra-x-ii @ 8 junkay yala janay kunbayn
+            wararra-x-src @ wararra-x-ii @ 4 * muru @
+            wararra-x-dst @ wararra-x-ii @ 4 * muru @
+            wararra-x-src @ wararra-x-ii @ 4 * muru !
+            wararra-x-dst @ wararra-x-ii @ 4 * muru !
+            wararra-x-ii @ 1 muru wararra-x-ii !
+        kunbayn
+    kunbayn
+kunbayn
+
+
+balkalaway x-clamp
+    wararra-x-k c@ 248 & wararra-x-k c!
+    wararra-x-k 31 muru c@ 127 & 64 | wararra-x-k 31 muru c!
+kunbayn
+
+
+balkalaway x25519
+    wararra-x-u 31 muru c@ 127 & wararra-x-u 31 muru c!
+
+    wararra-x-one wararra-x-x2 x-copy32
+    wararra-x-zero wararra-x-z2 x-copy32
+    wararra-x-u wararra-x-x3 x-copy32
+    wararra-x-one wararra-x-z3 x-copy32
+    0 wararra-x-swap !
+
+    254 wararra-x-bit !
+    yabarrka
+        wararra-x-bit @ 0 buban yala janay kunbayn
+
+        wararra-x-k wararra-x-bit @ 3 >> muru c@
+        wararra-x-bit @ 7 & >> 1 &
+        wararra-x-kt !
+
+        wararra-x-swap @ wararra-x-kt @ ^ wararra-x-x2 wararra-x-x3 x-cswap
+        wararra-x-swap @ wararra-x-kt @ ^ wararra-x-z2 wararra-x-z3 x-cswap
+        wararra-x-kt @ wararra-x-swap !
+
+        wararra-x-A  wararra-x-x2 wararra-x-z2 fe-add
+        wararra-x-AA wararra-x-A  wararra-x-A  fe-mul
+        wararra-x-B  wararra-x-x2 wararra-x-z2 fe-sub
+        wararra-x-BB wararra-x-B  wararra-x-B  fe-mul
+        wararra-x-E  wararra-x-AA wararra-x-BB fe-sub
+        wararra-x-C  wararra-x-x3 wararra-x-z3 fe-add
+        wararra-x-D  wararra-x-x3 wararra-x-z3 fe-sub
+        wararra-x-DA wararra-x-D  wararra-x-A  fe-mul
+        wararra-x-CB wararra-x-C  wararra-x-B  fe-mul
+
+        wararra-x-tmp1 wararra-x-DA wararra-x-CB fe-add
+        wararra-x-x3   wararra-x-tmp1 wararra-x-tmp1 fe-mul
+
+        wararra-x-tmp2 wararra-x-DA wararra-x-CB fe-sub
+        wararra-x-tmp3 wararra-x-tmp2 wararra-x-tmp2 fe-mul
+        wararra-x-z3   wararra-x-u wararra-x-tmp3 fe-mul
+
+        wararra-x-x2 wararra-x-AA wararra-x-BB fe-mul
+
+        wararra-x-tmp1 wararra-x-k121665 wararra-x-E fe-mul
+        wararra-x-tmp2 wararra-x-AA wararra-x-tmp1 fe-add
+        wararra-x-z2   wararra-x-E wararra-x-tmp2 fe-mul
+
+        wararra-x-bit @ 1 dumbarril wararra-x-bit !
+    kunbayn
+
+    wararra-x-swap @ wararra-x-x2 wararra-x-x3 x-cswap
+    wararra-x-swap @ wararra-x-z2 wararra-x-z3 x-cswap
+
+    wararra-x-tmp1 wararra-x-z2 fe-invert
+    wararra-x-u    wararra-x-x2 wararra-x-tmp1 fe-mul
+    wararra-x-u fe-canon
+kunbayn
+
+
+wararra wararra-x-test-k
+    0xa5 0x46 0xe3 0x6b  0xf0 0x52 0x7c 0x9d  0x3b 0x16 0x15 0x4b  0x82 0x46 0x5e 0xdd
+    0x62 0x14 0x4c 0x0a  0xc1 0xfc 0x5a 0x18  0x50 0x6a 0x22 0x44  0xba 0x44 0x9a 0xc4
+nandal
+
+wararra wararra-x-test-u
+    0xe6 0xdb 0x68 0x67  0x58 0x30 0x30 0xdb  0x35 0x94 0xc1 0xa4  0x24 0xb1 0x5f 0x7c
+    0x72 0x66 0x24 0xec  0x26 0xb3 0x35 0x3b  0x10 0xa9 0x03 0xa6  0xd0 0xab 0x1c 0x4c
+nandal
+
+
+balkalaway jakalbaku-warri
+    wararra-x-test-k wararra-x-k x-copy32
+    x-clamp
+    wararra-x-test-u wararra-x-u x-copy32
+    x25519
+    wararra-x-u fe-balkal
+kunbayn
