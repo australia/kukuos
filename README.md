@@ -1,21 +1,13 @@
-# Yalanji — an operating system written in Kuku Yalanji
+# kukuos — an i386 operating system written in Kuku Yalanji
 
 [![CI](https://github.com/australia/kukuos/actions/workflows/ci.yml/badge.svg)](https://github.com/australia/kukuos/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docker pulls](https://img.shields.io/docker/pulls/thomasdavis/yalanji.svg)](https://hub.docker.com/r/thomasdavis/yalanji)
 
-> **Acknowledgement of Country.**  This project uses the **Kuku Yalanji**
-> language of the Kuku Yalanji people, Traditional Custodians of the land
-> spanning the wet tropics between the Annan and Daintree rivers in Far
-> North Queensland, Australia.  We pay respect to Elders past and present,
-> and acknowledge that Kuku Yalanji — the language and its cultural
-> stewardship — belongs to the Kuku Yalanji people, not to this code.
-
-Yalanji is a from-scratch i386 operating system whose source is written
+kukuos is a from-scratch i386 operating system whose source is written
 exclusively in **Kuku Yalanji**.  Every function, variable, directory, file
-name and user-facing string is a real Kuku Yalanji word taken from the
-community dictionary
-([mobtranslate.com](https://github.com/australia/mobtranslate.com)).
+name and user-facing string is a Kuku Yalanji word, taken from the dictionary
+at [mobtranslate.com](https://github.com/australia/mobtranslate.com).
 
 The repo contains:
 
@@ -32,12 +24,10 @@ shell glue, and no Dockerfile/Makefile in the repo.
 
 ## What's novel about this
 
-- **An OS in an Aboriginal Australian language.**  The identifiers in the
-  source are not transliterations or tokens — they are Kuku Yalanji words
-  taken directly from the community dictionary, each with a meaning that
-  informs what the code does.  `kujil` (hold) duplicates the stack top.
-  `wararra` (empty box) is a buffer.  `bana` (water) is a stream — our
-  serial driver.  `milka` (ear) is the keyboard.
+- **Identifiers carry meaning.**  The source uses Kuku Yalanji words whose
+  glosses describe what the code does.  `kujil` (hold) duplicates the
+  stack top.  `wararra` (empty box) is a buffer.  `bana` (water) is a
+  stream — the serial driver.  `milka` (ear) is the keyboard.
 - **A programming language built for this project, in itself.**  The Kuku
   compiler is written in Kuku.  It reads `.kuku` source, runs in two passes
   (prescan + compile), and writes out an i386 ELF with multiboot or Linux
@@ -573,16 +563,6 @@ keyboard).
 
 ---
 
-## Credits and acknowledgements
-
-Kuku Yalanji belongs to the Kuku Yalanji people of Far North Queensland,
-Australia.  The dictionary bundled at `docs/dictionary.yaml` is sourced
-verbatim from
-[australia/mobtranslate.com](https://github.com/australia/mobtranslate.com).
-This project is a research artifact and is not an authoritative reference
-for the language — for learning or speaking Kuku Yalanji, go to the people
-and their teachers.
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the one hard rule (every
@@ -595,5 +575,4 @@ is and isn't welcome.
 Source code is [MIT-licensed](LICENSE).  The bundled dictionary at
 `docs/dictionary.yaml` is sourced from
 [australia/mobtranslate.com](https://github.com/australia/mobtranslate.com)
-and retains its upstream terms; cultural stewardship of Kuku Yalanji
-belongs to the Kuku Yalanji people.
+and retains its upstream terms.
