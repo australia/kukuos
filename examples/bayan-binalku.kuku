@@ -1,0 +1,675 @@
+# bayan-binalku.kuku  --  a dumb-HTTP git clone in Kuku.
+#
+#   ./kuku-bama/ngunnga --bama /tmp/bayan-binalku examples/bayan-binalku.kuku
+#   /tmp/bayan-binalku 24.199.97.226 9418 /kuku-hello.git /tmp/clone
+#
+# bayan = house, binalku = remember/learn.  Fetches a single commit
+# from a dumb-HTTP-served bare git repo and materialises its tree into
+# DEST-DIR.  Assumes the repo's loose objects were written with
+# core.loosecompression=0 (stored-only deflate blocks); full zlib
+# INFLATE with Huffman decoding is a separate multi-session project.
+#
+# Pipeline:
+#
+#   fetch /info/refs            → commit SHA (hex)
+#   fetch /objects/<ab>/<cdef…> → zlib-stored → "commit N\0<body>"
+#     parse body                → tree SHA (hex)
+#   fetch /objects/<ab>/<cdef…> → zlib-stored → "tree N\0<body>"
+#     iterate entries           → (mode, name, blob-sha-binary)
+#       for each:
+#         fetch blob            → zlib-stored → "blob N\0<contents>"
+#         write to DEST-DIR/name
+
+
+# ============================================================================
+# Globals
+# ============================================================================
+
+wararra-bss wararra-sockaddr        16
+wararra-bss wararra-args-socket     12
+wararra-bss wararra-args-connect    12
+wararra-bss wararra-fd               4
+
+wararra-bss wararra-port             4
+wararra-bss wararra-repo-path     1024      # the /kuku-hello.git prefix
+wararra-bss wararra-dest-dir      1024
+
+wararra-bss wararra-req-buf       4096      # outgoing HTTP request
+wararra-bss wararra-req-len          4
+wararra-bss wararra-resp-buf     65536      # incoming HTTP response
+wararra-bss wararra-resp-len         4      # total bytes received
+wararra-bss wararra-body-off         4      # offset of "\r\n\r\n"+4 in resp
+wararra-bss wararra-body-len         4      # resp-len - body-off
+
+wararra-bss wararra-inflate-out  65536
+wararra-bss wararra-inflate-len      4
+
+wararra-bss wararra-path-buf      1024      # for constructing object paths
+wararra-bss wararra-outpath       1024      # DEST-DIR/name for blob writes
+
+wararra-bss wararra-tmp-i            4
+wararra-bss wararra-tmp-j            4
+wararra-bss wararra-tmp-k            4
+wararra-bss wararra-tmp-n            4
+wararra-bss wararra-tmp-ptr          4
+wararra-bss wararra-tmp-val          4
+
+
+wararra wararra-req-get-head  "GET "                                              0 nandal
+wararra wararra-req-get-tail  " HTTP/1.0\r\nConnection: close\r\n\r\n"             0 nandal
+wararra wararra-slash-info    "/info/refs"                                        0 nandal
+wararra wararra-slash-objects "/objects/"                                         0 nandal
+wararra wararra-slash         "/"                                                 0 nandal
+wararra wararra-hex-tab       "0123456789abcdef"                                  0 nandal
+
+wararra wararra-err-args      "warri: bayan-binalku IP PORT REPO-PATH DEST-DIR\n" 0 nandal
+wararra wararra-err-socket    "bayan-binalku: socket kari\n"                      0 nandal
+wararra wararra-err-connect   "bayan-binalku: connect kari\n"                     0 nandal
+wararra wararra-err-http      "bayan-binalku: HTTP kari\n"                        0 nandal
+wararra wararra-err-inflate   "bayan-binalku: kuku yanji, bana-yanyil kari\n"     0 nandal
+wararra wararra-err-git       "bayan-binalku: git object kuku yanji\n"            0 nandal
+wararra wararra-err-mkdir     "bayan-binalku: mkdir kari\n"                       0 nandal
+wararra wararra-err-open      "bayan-binalku: open kari\n"                        0 nandal
+wararra wararra-err-ref       "bayan-binalku: info/refs kuku yanji\n"             0 nandal
+
+wararra wararra-log-head      "bayan-binalku: "                                   0 nandal
+wararra wararra-log-arrow     " -> "                                              0 nandal
+wararra wararra-newline       "\n"                                                0 nandal
+
+
+# ============================================================================
+# Small helpers
+# ============================================================================
+
+balkalaway kuku-dukul
+    # (ptr -- len)
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+balkalaway birru-kuku
+    # (ptr --)   write null-terminated to stderr, exit 1
+    wararra-tmp-ptr !
+    2 wararra-tmp-ptr @ wararra-tmp-ptr @ kuku-dukul bama-balkal wuljil
+    1 bama-kunbayn
+kunbayn
+
+balkalaway log-kuku
+    # (ptr --)   write to stderr, no exit
+    wararra-tmp-ptr !
+    2 wararra-tmp-ptr @ wararra-tmp-ptr @ kuku-dukul bama-balkal wuljil
+kunbayn
+
+
+# ============================================================================
+# Decimal parser (used by main for PORT argument)
+# ============================================================================
+
+balkalaway parse-decimal
+    # (ptr -- n)
+    wararra-tmp-ptr !
+    0 wararra-tmp-val !
+    yabarrka
+        wararra-tmp-ptr @ c@
+        kujil 0x30 buban         yala wuljil janay kunbayn
+        kujil 0x39 jirray        yala wuljil janay kunbayn
+        0x30 dumbarril
+        wararra-tmp-val @ 10 * muru   wararra-tmp-val !
+        wararra-tmp-ptr @ 1 muru wararra-tmp-ptr !
+    kunbayn
+    wararra-tmp-val @
+kunbayn
+
+
+# ============================================================================
+# Dotted-quad IP parser.  Writes 4 bytes at wararra-sockaddr+4.
+# ============================================================================
+
+balkalaway parse-ip
+    wararra-tmp-ptr !
+
+    0 wararra-tmp-j !
+    yabarrka
+        wararra-tmp-j @ 4 buban kari yala janay kunbayn
+
+        0 wararra-tmp-val !
+        0 wararra-tmp-k !
+        yabarrka
+            wararra-tmp-ptr @ c@
+            kujil 0x30 buban yala wuljil janay kunbayn
+            kujil 0x39 jirray yala wuljil janay kunbayn
+            0x30 dumbarril
+            wararra-tmp-val @ 10 * muru wararra-tmp-val !
+            wararra-tmp-ptr @ 1 muru wararra-tmp-ptr !
+            wararra-tmp-k @ 1 muru wararra-tmp-k !
+        kunbayn
+
+        wararra-tmp-val @ 0xFF &
+        wararra-sockaddr 4 muru wararra-tmp-j @ muru c!
+
+        wararra-tmp-j @ 3 buban
+        yala
+            wararra-tmp-ptr @ 1 muru wararra-tmp-ptr !
+        kunbayn
+
+        wararra-tmp-j @ 1 muru wararra-tmp-j !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# String helpers.  All strings here are null-terminated C strings in BSS.
+# ============================================================================
+
+balkalaway str-copy
+    # (src dest -- dest-end-ptr)   copies up to and NOT including the \0
+    wararra-tmp-ptr !               # dest
+    wararra-tmp-val !               # src
+    yabarrka
+        wararra-tmp-val @ c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wararra-tmp-ptr @ c!
+        wararra-tmp-ptr @ 1 muru wararra-tmp-ptr !
+        wararra-tmp-val @ 1 muru wararra-tmp-val !
+    kunbayn
+    wararra-tmp-ptr @
+kunbayn
+
+balkalaway str-copy-n
+    # (src dest n -- dest-end-ptr)   copies exactly n bytes
+    wararra-tmp-n !
+    wararra-tmp-ptr !               # dest
+    wararra-tmp-val !               # src
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-tmp-n @ buban kari yala janay kunbayn
+        wararra-tmp-val @ wararra-tmp-i @ muru c@
+        wararra-tmp-ptr @ wararra-tmp-i @ muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    wararra-tmp-ptr @ wararra-tmp-n @ muru
+kunbayn
+
+
+# ============================================================================
+# HTTP GET.  (path -- )
+#
+# Opens a fresh TCP socket to wararra-sockaddr (IP+port already filled by
+# main), sends "GET <path> HTTP/1.0\r\nConnection: close\r\n\r\n", reads
+# the entire response into wararra-resp-buf, and parses out the body
+# offset and length into wararra-body-off / wararra-body-len.
+# ============================================================================
+
+wararra-bss wararra-n            4       # last read count
+wararra-bss wararra-http-path    4       # saved across str-copy clobbers
+
+balkalaway http-get
+    wararra-http-path !                 # path
+
+    # socket(AF_INET=2, SOCK_STREAM=1, 0)
+    0x02 wararra-args-socket c!
+    0x00 wararra-args-socket 1 muru c!
+    0x00 wararra-args-socket 2 muru c!
+    0x00 wararra-args-socket 3 muru c!
+    0x01 wararra-args-socket 4 muru c!
+    0x00 wararra-args-socket 5 muru c!
+    0x00 wararra-args-socket 6 muru c!
+    0x00 wararra-args-socket 7 muru c!
+    0x00 wararra-args-socket 8 muru c!
+    0x00 wararra-args-socket 9 muru c!
+    0x00 wararra-args-socket 10 muru c!
+    0x00 wararra-args-socket 11 muru c!
+
+    wararra-args-socket 1 bama-wari
+    kujil 0 buban yala wararra-err-socket birru-kuku kunbayn
+    wararra-fd !
+
+    # connect
+    wararra-fd @     wararra-args-connect              !
+    wararra-sockaddr wararra-args-connect 4 muru       !
+    16               wararra-args-connect 8 muru       !
+    wararra-args-connect 3 bama-wari
+    kujil 0 buban yala wararra-err-connect birru-kuku kunbayn
+    wuljil
+
+    # build request: "GET " + path + " HTTP/1.0\r\nConnection: close\r\n\r\n"
+    wararra-req-get-head wararra-req-buf         str-copy
+    wararra-http-path @   wundil                  str-copy
+    wararra-req-get-tail  wundil                  str-copy
+    wararra-req-buf dumbarril wararra-req-len !
+
+    wararra-fd @ wararra-req-buf wararra-req-len @ bama-balkal wuljil
+
+    # read response, appending to wararra-resp-buf.  Use a 4 KB chunk size —
+    # matches what works for bayan-mana; large single-read sizes seem to
+    # return early on this stack.
+    0 wararra-resp-len !
+    yabarrka
+        wararra-fd @ wararra-resp-buf wararra-resp-len @ muru
+        4096 bama-babaji
+        kujil 1 buban yala wuljil janay kunbayn
+        wararra-resp-len @ muru wararra-resp-len !
+    kunbayn
+
+    wararra-fd @ bama-nandal wuljil
+
+    # find "\r\n\r\n" to split headers from body
+    0 wararra-tmp-i !
+    -1 wararra-body-off !
+    yabarrka
+        wararra-tmp-i @ 4 muru wararra-resp-len @ jirray yala janay kunbayn
+        wararra-resp-buf wararra-tmp-i @ muru            c@ 0x0D junkay
+        wararra-resp-buf wararra-tmp-i @ 1 muru muru     c@ 0x0A junkay &
+        wararra-resp-buf wararra-tmp-i @ 2 muru muru     c@ 0x0D junkay &
+        wararra-resp-buf wararra-tmp-i @ 3 muru muru     c@ 0x0A junkay &
+        yala
+            wararra-tmp-i @ 4 muru wararra-body-off !
+            janay
+        kunbayn
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    wararra-body-off @ -1 junkay
+    yala wararra-err-http birru-kuku kunbayn
+
+    # require status 2xx — check bytes "HTTP/1.X 2"
+    wararra-resp-buf 9 muru c@ 0x32 junkay kari
+    yala wararra-err-http birru-kuku kunbayn
+
+    wararra-resp-len @ wararra-body-off @ dumbarril wararra-body-len !
+kunbayn
+
+
+# ============================================================================
+# zlib stored-only INFLATE.
+#
+#   (in-ptr in-len out-ptr -- out-len)
+#
+# Reads: 2-byte zlib header, then a sequence of stored blocks until BFINAL.
+# Each stored block is:
+#   [1 byte: bits LSB-first = BFINAL:1, BTYPE:2 = 00, 5 bits padding]
+#   [2 bytes: LEN, little-endian]
+#   [2 bytes: ~LEN (unchecked)]
+#   [LEN bytes: literal data]
+# Any non-stored block type (BTYPE != 0) is an error.
+# ============================================================================
+
+wararra-bss wararra-infl-in         4
+wararra-bss wararra-infl-len        4
+wararra-bss wararra-infl-out        4
+wararra-bss wararra-infl-rp         4       # read position in input
+wararra-bss wararra-infl-wp         4       # write position in output
+wararra-bss wararra-infl-blen       4
+wararra-bss wararra-infl-bfin       4
+
+balkalaway zlib-inflate
+    wararra-infl-out !
+    wararra-infl-len !
+    wararra-infl-in  !
+
+    2 wararra-infl-rp !                     # skip CMF + FLG
+    0 wararra-infl-wp !
+
+    yabarrka
+        # read block header byte
+        wararra-infl-rp @ wararra-infl-len @ buban kari
+        yala wararra-err-inflate birru-kuku kunbayn
+        wararra-infl-in @ wararra-infl-rp @ muru c@
+        kujil 1 & wararra-infl-bfin !                    # BFINAL
+        1 >> 3 &                                          # BTYPE
+        0 junkay kari
+        yala wararra-err-inflate birru-kuku kunbayn
+        wararra-infl-rp @ 1 muru wararra-infl-rp !
+
+        # read LEN (little-endian 16)
+        wararra-infl-in @ wararra-infl-rp @ muru c@
+        wararra-infl-in @ wararra-infl-rp @ 1 muru muru c@ 8 <<
+        | wararra-infl-blen !
+        wararra-infl-rp @ 4 muru wararra-infl-rp !       # LEN + NLEN (skip NLEN)
+
+        # copy LEN bytes from in to out
+        0 wararra-tmp-i !
+        yabarrka
+            wararra-tmp-i @ wararra-infl-blen @ buban kari yala janay kunbayn
+            wararra-infl-in @ wararra-infl-rp @ wararra-tmp-i @ muru muru c@
+            wararra-infl-out @ wararra-infl-wp @ wararra-tmp-i @ muru muru c!
+            wararra-tmp-i @ 1 muru wararra-tmp-i !
+        kunbayn
+        wararra-infl-rp @ wararra-infl-blen @ muru wararra-infl-rp !
+        wararra-infl-wp @ wararra-infl-blen @ muru wararra-infl-wp !
+
+        wararra-infl-bfin @ 0 junkay kari yala janay kunbayn
+    kunbayn
+
+    wararra-infl-wp @
+kunbayn
+
+
+# ============================================================================
+# Hex helpers: pack a 40-char hex SHA into 20 binary bytes, and the inverse.
+# ============================================================================
+
+balkalaway hex-nibble
+    # (ch -- nibble)
+    kujil 0x39 jirray
+    yala
+        0x57 dumbarril
+        yinya
+        0x30 dumbarril
+    kunbayn
+kunbayn
+
+balkalaway sha-hex-to-bin
+    # (hex-ptr bin-ptr --)
+    wararra-tmp-ptr !               # bin-ptr
+    wararra-tmp-val !               # hex-ptr
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 20 buban kari yala janay kunbayn
+        wararra-tmp-val @ wararra-tmp-i @ 2 * muru c@ hex-nibble 4 <<
+        wararra-tmp-val @ wararra-tmp-i @ 2 * muru 1 muru c@ hex-nibble |
+        wararra-tmp-ptr @ wararra-tmp-i @ muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+balkalaway sha-bin-to-hex
+    # (bin-ptr hex-ptr --)   writes 40 hex chars (no null)
+    wararra-tmp-ptr !
+    wararra-tmp-val !
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 20 buban kari yala janay kunbayn
+        wararra-tmp-val @ wararra-tmp-i @ muru c@
+        kujil 4 >> 0xF & wararra-hex-tab muru c@
+        wararra-tmp-ptr @ wararra-tmp-i @ 2 * muru c!
+        0xF & wararra-hex-tab muru c@
+        wararra-tmp-ptr @ wararra-tmp-i @ 2 * muru 1 muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Build /<repo-path>/objects/<ab>/<cdef...>  at wararra-path-buf
+#   (hex-sha --)   reads 40 chars from hex-sha, null-terminates path-buf.
+# ============================================================================
+
+wararra-bss wararra-op-sha 4
+
+balkalaway build-object-path
+    wararra-op-sha !                    # hex-sha (str-copy would clobber tmp-ptr)
+
+    wararra-repo-path     wararra-path-buf    str-copy
+    wararra-slash-objects wundil               str-copy
+    wararra-op-sha @      wundil  2            str-copy-n
+    wararra-slash         wundil               str-copy
+    wararra-op-sha @ 2 muru   wundil  38       str-copy-n
+    0 wundil c!
+kunbayn
+
+
+# ============================================================================
+# Fetch one git object by hex SHA, store decoded payload + "type N" header
+# at wararra-inflate-out.  Sets wararra-inflate-len to the decoded length.
+# ============================================================================
+
+balkalaway fetch-object
+    # (hex-sha --)
+    build-object-path
+    wararra-path-buf http-get
+    wararra-resp-buf wararra-body-off @ muru
+    wararra-body-len @
+    wararra-inflate-out zlib-inflate  wararra-inflate-len !
+kunbayn
+
+
+# ============================================================================
+# Parse git object header at the start of wararra-inflate-out.
+# Format:  "<type> <decimal-len>\0<body>"
+# Returns (type-first-char body-offset body-len) on the data stack.
+# ============================================================================
+
+balkalaway parse-object-header
+    # ( -- type-char body-off body-len )
+    # type starts at 0.  'c'=commit, 't'=tree, 'b'=blob.
+    wararra-inflate-out c@                           # type-char
+
+    # find the null terminator
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-inflate-out wararra-tmp-i @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wuljil
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    wararra-tmp-i @ 1 muru                          # body-off
+    wararra-inflate-len @ wararra-tmp-i @ 1 muru dumbarril   # body-len
+kunbayn
+
+
+# ============================================================================
+# Find a commit's tree SHA.  The decoded commit body is at
+# wararra-inflate-out + body-off.  First line is "tree <40 hex>\n".
+# Writes the 40 hex chars into wararra-tree-sha.
+# ============================================================================
+
+wararra-bss wararra-tree-sha  44      # 40 + NUL, rounded up
+
+balkalaway commit-find-tree
+    # (body-off --)
+    wararra-tmp-ptr !                # body-off
+
+    # expect "tree " (5 bytes)
+    wararra-inflate-out wararra-tmp-ptr @ muru                c@ 0x74 junkay kari
+    yala wararra-err-git birru-kuku kunbayn
+    wararra-inflate-out wararra-tmp-ptr @ muru 1 muru         c@ 0x72 junkay kari
+    yala wararra-err-git birru-kuku kunbayn
+    wararra-inflate-out wararra-tmp-ptr @ muru 2 muru         c@ 0x65 junkay kari
+    yala wararra-err-git birru-kuku kunbayn
+    wararra-inflate-out wararra-tmp-ptr @ muru 3 muru         c@ 0x65 junkay kari
+    yala wararra-err-git birru-kuku kunbayn
+    wararra-inflate-out wararra-tmp-ptr @ muru 4 muru         c@ 0x20 junkay kari
+    yala wararra-err-git birru-kuku kunbayn
+
+    wararra-inflate-out wararra-tmp-ptr @ muru 5 muru wararra-tree-sha 40 str-copy-n wuljil
+    0 wararra-tree-sha 40 muru c!
+kunbayn
+
+
+# ============================================================================
+# Iterate a tree object and clone every file it names.
+#
+# Tree body format: repeated (<mode as ascii> SP <name> NUL <20 bytes sha>)
+# mode is typically "100644" (regular) or "100755" (exec).  We ignore mode
+# and just materialise every entry as a file with the given name.
+# ============================================================================
+
+wararra-bss wararra-entry-name-buf   256
+wararra-bss wararra-entry-sha-hex     44
+wararra-bss wararra-entry-sha-bin     20
+wararra-bss wararra-tree-body-off      4
+wararra-bss wararra-tree-body-len      4
+wararra-bss wararra-tree-cursor        4      # bytes consumed so far
+wararra-bss wararra-tree-namelen       4
+
+balkalaway tree-iterate
+    # (body-off body-len --)
+    wararra-tree-body-len !
+    wararra-tree-body-off !
+
+    0 wararra-tree-cursor !
+
+    yabarrka
+        wararra-tree-cursor @ wararra-tree-body-len @ buban kari yala janay kunbayn
+
+        # skip "<mode> " — advance until we hit 0x20
+        yabarrka
+            wararra-tree-cursor @ wararra-tree-body-len @ buban kari yala janay kunbayn
+            wararra-inflate-out wararra-tree-body-off @ muru wararra-tree-cursor @ muru c@
+            kujil 0x20 junkay yala wuljil janay kunbayn
+            wuljil
+            wararra-tree-cursor @ 1 muru wararra-tree-cursor !
+        kunbayn
+        wararra-tree-cursor @ 1 muru wararra-tree-cursor !      # skip the SP
+
+        # copy name until NUL
+        0 wararra-tree-namelen !
+        yabarrka
+            wararra-inflate-out wararra-tree-body-off @ muru wararra-tree-cursor @ muru c@
+            kujil 0 junkay yala wuljil janay kunbayn
+            wararra-entry-name-buf wararra-tree-namelen @ muru c!
+            wararra-tree-namelen @ 1 muru wararra-tree-namelen !
+            wararra-tree-cursor @ 1 muru wararra-tree-cursor !
+        kunbayn
+        0 wararra-entry-name-buf wararra-tree-namelen @ muru c!
+        wararra-tree-cursor @ 1 muru wararra-tree-cursor !      # skip the NUL
+
+        # copy 20-byte sha into entry-sha-bin, also to hex
+        0 wararra-tmp-i !
+        yabarrka
+            wararra-tmp-i @ 20 buban kari yala janay kunbayn
+            wararra-inflate-out wararra-tree-body-off @ muru wararra-tree-cursor @ muru wararra-tmp-i @ muru c@
+            wararra-entry-sha-bin wararra-tmp-i @ muru c!
+            wararra-tmp-i @ 1 muru wararra-tmp-i !
+        kunbayn
+        wararra-entry-sha-bin wararra-entry-sha-hex sha-bin-to-hex
+        0 wararra-entry-sha-hex 40 muru c!
+        wararra-tree-cursor @ 20 muru wararra-tree-cursor !
+
+        # write the blob for this entry
+        clone-blob
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# clone-blob: fetch + inflate the blob at wararra-entry-sha-hex, write its
+# contents to <dest-dir>/<entry-name>.
+# ============================================================================
+
+wararra-bss wararra-blob-fd     4
+
+balkalaway clone-blob
+    # log "  <name> -> /dest/name"
+    2 "  " 2 bama-balkal wuljil
+    2 wararra-entry-name-buf log-kuku
+    2 wararra-log-arrow log-kuku
+
+    # build outpath
+    wararra-dest-dir       wararra-outpath     str-copy
+    wararra-slash          wundil              str-copy
+    wararra-entry-name-buf wundil              str-copy
+    0 wundil c!
+
+    2 wararra-outpath log-kuku
+    2 wararra-newline log-kuku
+
+    wararra-entry-sha-hex fetch-object
+    parse-object-header
+    wararra-tmp-n !                 # body-len
+    wararra-tmp-ptr !               # body-off
+    wuljil                          # drop type-char (assume blob)
+
+    # open + write + close
+    wararra-outpath 0x241 bama-ngunnga wararra-blob-fd !
+    wararra-blob-fd @ 0 jirray kari
+    yala wararra-err-open birru-kuku kunbayn
+    wararra-blob-fd @ wararra-inflate-out wararra-tmp-ptr @ muru
+        wararra-tmp-n @ bama-balkal wuljil
+    wararra-blob-fd @ bama-nandal wuljil
+kunbayn
+
+
+# ============================================================================
+# Fetch info/refs, extract the first ref's commit SHA into wararra-commit-sha.
+# info/refs format (dumb-HTTP):
+#     <40 hex>\t<ref-name>\n
+#     <40 hex>\t<ref-name>\n
+#     ...
+# We just take the first 40 hex chars.
+# ============================================================================
+
+wararra-bss wararra-commit-sha   44
+
+balkalaway fetch-ref
+    # build path: <repo-path>/info/refs
+    wararra-repo-path  wararra-path-buf    str-copy
+    wararra-slash-info wundil               str-copy
+    0 wundil c!
+
+    wararra-path-buf http-get
+
+    wararra-body-len @ 40 buban
+    yala wararra-err-ref birru-kuku kunbayn
+
+    wararra-resp-buf wararra-body-off @ muru
+    wararra-commit-sha 40 str-copy-n wuljil
+    0 wararra-commit-sha 40 muru c!
+kunbayn
+
+
+# ============================================================================
+# mkdir DEST-DIR — syscall mkdir(2) = 39 on i386
+# ============================================================================
+
+wararra-bss wararra-mkdir-mode  4
+
+balkalaway bama-mkdir
+    # (path mode -- ret)
+    # we have no mkdir primitive; do it inline via open(O_RDONLY | O_DIRECTORY | O_CREAT)
+    # — that doesn't work.  Use syscall 39 directly.  We can piggyback on
+    # bama-ngunnga if we push the mkdir syscall number, but primitives are
+    # hard-coded.  Simplest: skip mkdir here.  The caller ensures DEST-DIR exists.
+    wuljil wuljil 0
+kunbayn
+
+
+# ============================================================================
+# Main
+# ============================================================================
+
+balkalaway jakalbaku-warri
+    bama-wangkanil 5 junkay kari
+    yala wararra-err-args birru-kuku kunbayn
+
+    # argv[1] = IP, argv[2] = PORT, argv[3] = REPO-PATH, argv[4] = DEST-DIR
+    1 4 * bama-wararra muru @ parse-ip
+
+    2 4 * bama-wararra muru @ parse-decimal wararra-port !
+    0x02 wararra-sockaddr c!
+    0x00 wararra-sockaddr 1 muru c!
+    wararra-port @  8 >> 0xFF &  wararra-sockaddr 2 muru c!
+    wararra-port @       0xFF &  wararra-sockaddr 3 muru c!
+
+    3 4 * bama-wararra muru @ wararra-repo-path     str-copy  0 wundil c!
+    4 4 * bama-wararra muru @ wararra-dest-dir      str-copy  0 wundil c!
+
+    2 wararra-log-head log-kuku
+    2 wararra-dest-dir log-kuku
+    2 wararra-newline log-kuku
+
+    fetch-ref
+
+    # fetch + parse commit
+    wararra-commit-sha fetch-object
+    parse-object-header
+    wararra-tmp-n !                          # body-len (commit)
+    wararra-tmp-ptr !                        # body-off
+    wuljil                                    # drop type char
+    wararra-tmp-ptr @ commit-find-tree
+
+    # fetch + iterate tree
+    wararra-tree-sha fetch-object
+    parse-object-header
+    wararra-tmp-n !                          # body-len
+    wararra-tmp-ptr !                        # body-off
+    wuljil
+    wararra-tmp-ptr @ wararra-tmp-n @ tree-iterate
+
+    0 bama-kunbayn
+kunbayn
