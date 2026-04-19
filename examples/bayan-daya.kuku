@@ -64,34 +64,175 @@ wararra wararra-response
     "Connection: close\r\n"
     "Server: bayan-daya/kuku\r\n"
     "\r\n"
+
     "<!doctype html>\n"
     "<meta charset=\"utf-8\">\n"
-    "<title>kuku</title>\n"
+    "<title>kuku(1)</title>\n"
     "<style>\n"
-    "  body { font: 16px/1.5 ui-monospace, monospace; max-width: 40em;\n"
-    "         margin: 4rem auto; padding: 0 1rem; color: #222; }\n"
+    "  body { font: 14.5px/1.55 ui-monospace, Menlo, Consolas, monospace;\n"
+    "         max-width: 56em; margin: 3rem auto; padding: 0 1rem;\n"
+    "         color: #222; }\n"
+    "  h1 { font-size: 1.4rem; margin: 0 0 .3em; }\n"
+    "  h1 small { color: #888; font-weight: 400; font-size: .8em; }\n"
+    "  h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .08em;\n"
+    "       color: #555; margin: 2.6em 0 .6em; padding-top: .4em;\n"
+    "       border-top: 1px solid #ddd; }\n"
+    "  dl { margin: 0; }\n"
+    "  dt { margin-top: 1em; font-weight: 600; }\n"
+    "  dt i { color: #06a; font-style: italic; font-weight: 400; }\n"
+    "  dt .gloss { font-weight: 400; color: #999; margin-left: .9em; }\n"
+    "  dd { margin: .1em 0 0 0; color: #444; }\n"
     "  code { background: #f1f1f1; padding: 0 .25em; border-radius: 3px; }\n"
-    "  a { color: #04a; }\n"
+    "  pre  { background: #f6f6f6; padding: .7em 1em; border-radius: 4px;\n"
+    "         overflow-x: auto; }\n"
+    "  a    { color: #04a; }\n"
+    "  footer { margin-top: 3em; padding-top: 1em;\n"
+    "           border-top: 1px solid #ddd; color: #888; font-size: .88em; }\n"
     "</style>\n"
-    "\n"
-    "<h1>kaday, bama.</h1>\n"
-    "\n"
-    "<p>This page is served by an HTTP server written in Kuku, a stack\n"
-    "language whose keywords are drawn from Kuku Yalanji. The server\n"
-    "source is <code>examples/bayan-daya.kuku</code>; it uses a single new\n"
-    "compiler primitive, <code>bama-wari</code>, that wraps the Linux i386\n"
-    "<code>socketcall(2)</code> syscall. The full pipeline is:\n"
-    "<code>socket</code> &rarr; <code>setsockopt(SO_REUSEADDR)</code> &rarr;\n"
-    "<code>bind</code> &rarr; <code>listen</code> &rarr; loop over\n"
-    "<code>accept</code> / <code>read</code> / <code>write</code> /\n"
-    "<code>close</code>. The response you are reading right now is a\n"
-    "null-terminated <code>wararra</code> declaration the server measures\n"
-    "with <code>kuku-dukul</code> and hands to <code>bama-balkal</code>\n"
-    "(the <code>write(2)</code> primitive).</p>\n"
-    "\n"
-    "<p><a href=\"https://github.com/australia/kukuos\">source</a> &middot;\n"
-    "<a href=\"https://huggingface.co/ajaxdavis/kuku-dambun\">GPT trained\n"
-    "in the same language</a></p>\n"
+
+    "<h1>kuku <small>&mdash; command reference</small></h1>\n"
+
+    "<p>Everything below is compiled from Kuku source in\n"
+    "<a href=\"https://github.com/australia/kukuos\">github.com/australia/kukuos</a>.\n"
+    "The grey glosses are the Kuku Yalanji sense of each word.</p>\n"
+
+    "<h2>Connect</h2>\n"
+    "<pre>ssh yalanji@24.199.97.226          # interactive Yalanji shell\n"
+    "ssh yalanji-box@24.199.97.226      # /bin/sh with the box CLIs on $PATH\n"
+    "                                   # password: yalanji</pre>\n"
+
+    "<h2>Yalanji shell (interactive)</h2>\n"
+    "<p>Built-ins of <code>yalanji-shell</code>, the Kuku ELF that is the\n"
+    "login shell of the <code>yalanji</code> user.</p>\n"
+    "<dl>\n"
+    "  <dt>kaday <span class=\"gloss\">come</span></dt>\n"
+    "  <dd>Greet. Replies <code>kaday, bama!</code></dd>\n"
+
+    "  <dt>binal <span class=\"gloss\">know</span></dt>\n"
+    "  <dd>Print the kernel identity and a short map of synonymous words.</dd>\n"
+
+    "  <dt>jalngka <span class=\"gloss\">smooth</span></dt>\n"
+    "  <dd>Clear the screen (ANSI <code>ESC[2J ESC[H</code>).</dd>\n"
+
+    "  <dt>yirrkay <i>text&hellip;</i> <span class=\"gloss\">shout</span></dt>\n"
+    "  <dd>Print <i>text</i> and a newline to stdout. Equivalent to\n"
+    "      <code>echo</code>.</dd>\n"
+
+    "  <dt>balkal <i>name</i> <i>text&hellip;</i> <span class=\"gloss\">tell</span></dt>\n"
+    "  <dd>Write <i>text</i> to <code>/srv/box/<i>name</i></code>. Refuses\n"
+    "      names containing <code>/</code>.</dd>\n"
+
+    "  <dt>yanyil <i>name</i> <span class=\"gloss\">see</span></dt>\n"
+    "  <dd>Read <code>/srv/box/<i>name</i></code> to stdout.</dd>\n"
+
+    "  <dt>dukul <span class=\"gloss\">heads</span></dt>\n"
+    "  <dd>List entries of <code>/srv/box</code> via\n"
+    "      <code>getdents64(2)</code>.</dd>\n"
+
+    "  <dt>kunbayn <span class=\"gloss\">finish</span></dt>\n"
+    "  <dd>Exit the shell.</dd>\n"
+    "</dl>\n"
+
+    "<h2>Box CLIs (pipeable)</h2>\n"
+    "<p>Same four file commands, but as standalone ELFs on\n"
+    "<code>yalanji-box</code>'s <code>$PATH</code>. <code>balkal</code>\n"
+    "reads from stdin instead of taking trailing arguments, so they\n"
+    "compose with shell pipes.</p>\n"
+    "<dl>\n"
+    "  <dt>yirrkay <i>text&hellip;</i></dt>\n"
+    "  <dd><code>echo</code>.</dd>\n"
+
+    "  <dt>balkal <i>name</i> &lt; <i>stream</i></dt>\n"
+    "  <dd>Write stdin to <code>/srv/box/<i>name</i></code>.</dd>\n"
+
+    "  <dt>yanyil <i>name</i></dt>\n"
+    "  <dd>Write <code>/srv/box/<i>name</i></code> to stdout\n"
+    "      (<code>cat</code>).</dd>\n"
+
+    "  <dt>dukul</dt>\n"
+    "  <dd>List <code>/srv/box</code> (<code>ls</code>).</dd>\n"
+    "</dl>\n"
+
+    "<h2>Examples you can build and run</h2>\n"
+    "<p>Compile each with\n"
+    "<code>./kuku-bama/ngunnga --bama <i>out</i> examples/<i>src</i>.kuku</code>.\n"
+    "Unit-test style: every one asserts against a published vector and\n"
+    "exits non-zero on mismatch.</p>\n"
+    "<dl>\n"
+    "  <dt>ngunnga <i>out</i> <i>src.kuku</i>&hellip; <span class=\"gloss\">to make</span></dt>\n"
+    "  <dd>The compiler itself. <code>--bama</code> switches the ELF\n"
+    "      template from multiboot kernel to 32-bit Linux user-space.</dd>\n"
+
+    "  <dt>nganjal</dt>\n"
+    "  <dd>File I/O round-trip through the <code>bama-*</code>\n"
+    "      <code>int 0x80</code> wrappers.</dd>\n"
+
+    "  <dt>sha256, sha512</dt>\n"
+    "  <dd>Pure-Kuku hashes against NIST test vectors.</dd>\n"
+
+    "  <dt>chacha20</dt>\n"
+    "  <dd>RFC&nbsp;7539 block function.</dd>\n"
+
+    "  <dt>curve25519-x25519</dt>\n"
+    "  <dd>RFC&nbsp;7748 key agreement.</dd>\n"
+
+    "  <dt>ed25519-sign</dt>\n"
+    "  <dd>Ed25519 signing against RFC&nbsp;8032 test vector 1.</dd>\n"
+
+    "  <dt>dambun binalku <i>file</i> <span class=\"gloss\">remember</span></dt>\n"
+    "  <dd>Train a character-level Transformer on <i>file</i> (one lowercase\n"
+    "      word per line). Saves weights to\n"
+    "      <code>/tmp/dambun.kuku-gpt-model</code>.</dd>\n"
+
+    "  <dt>dambun balkalaway <span class=\"gloss\">let us speak together</span></dt>\n"
+    "  <dd>Load weights and sample 20 names to stdout.</dd>\n"
+
+    "  <dt>dambun ngana-warri <span class=\"gloss\">grinding-first</span></dt>\n"
+    "  <dd>Autograd self-test: gradient descent on <code>(x&minus;3)&sup2;</code>,\n"
+    "      prints 0 and 3000 (<i>x</i>&middot;1000).</dd>\n"
+
+    "  <dt>bayan-daya <span class=\"gloss\">house-give</span></dt>\n"
+    "  <dd>The HTTP server serving this page. Binds <code>0.0.0.0:80</code>\n"
+    "      and loops over <code>accept</code> /\n"
+    "      <code>read</code> / <code>write</code> / <code>close</code> via\n"
+    "      the <code>bama-wari</code> (<code>socketcall</code>) primitive.</dd>\n"
+    "</dl>\n"
+
+    "<h2>Writing Kuku</h2>\n"
+    "<dl>\n"
+    "  <dt>balkalaway <i>name</i> &hellip; kunbayn</dt>\n"
+    "  <dd>Define a function.</dd>\n"
+
+    "  <dt>yala &hellip; yinya &hellip; kunbayn</dt>\n"
+    "  <dd>If (top of stack is non-zero) &hellip; else &hellip; end.</dd>\n"
+
+    "  <dt>yabarrka &hellip; janay &hellip; kunbayn</dt>\n"
+    "  <dd>Loop with <code>janay</code> as break.</dd>\n"
+
+    "  <dt>wararra <i>name</i> 1 2 \"string\" 0 nandal</dt>\n"
+    "  <dd>Initialised rodata, a byte at a time. Strings accept the\n"
+    "      escapes <code>\\n \\t \\r \\\\ \\' \\\" \\0 \\e</code>.</dd>\n"
+
+    "  <dt>wararra-bss <i>name</i> <i>size</i></dt>\n"
+    "  <dd>Zero-filled BSS slot. Costs nothing in the ELF file size.</dd>\n"
+
+    "  <dt>kujil / wuljil / wundil</dt>\n"
+    "  <dd>Data stack: dup / drop / swap.</dd>\n"
+
+    "  <dt>@ / !  and  c@ / c!</dt>\n"
+    "  <dd>Load / store a 32-bit word or a single byte.</dd>\n"
+
+    "  <dt>bama-@ / bama-!</dt>\n"
+    "  <dd>Load / store an IEEE-754 double onto / off the x87 stack.</dd>\n"
+    "</dl>\n"
+
+    "<footer>\n"
+    "Source: <a href=\"https://github.com/australia/kukuos\">github.com/australia/kukuos</a>\n"
+    "&middot; GPT weights:\n"
+    "<a href=\"https://huggingface.co/ajaxdavis/kuku-dambun\">huggingface.co/ajaxdavis/kuku-dambun</a>\n"
+    "&middot; this page is served by a 3.2&nbsp;kB 32-bit Linux ELF\n"
+    "(<code>examples/bayan-daya.kuku</code>) listening on port&nbsp;80.\n"
+    "</footer>\n"
     0
 nandal
 
