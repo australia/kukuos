@@ -409,7 +409,13 @@ nandal
 # 258 = 0x0102, so hi=1, lo=2.
 
 wararra wararra-len-extra-src
-    0 0 0 0  1 1 1 1  2 2 2 2  3 3 3 3  4 4 4 4  5 5 5 5  0
+    0 0 0 0 0 0 0 0         # 257..264: 0 extra bits each
+    1 1 1 1                  # 265..268: 1
+    2 2 2 2                  # 269..272: 2
+    3 3 3 3                  # 273..276: 3
+    4 4 4 4                  # 277..280: 4
+    5 5 5 5                  # 281..284: 5
+    0                        # 285: 0
 nandal
 
 wararra wararra-dist-base-src
