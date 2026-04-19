@@ -1,0 +1,716 @@
+# bana-yanyil.kuku  --  full zlib INFLATE in Kuku (RFC 1950 + RFC 1951).
+#
+#   bana-yanyil <compressed-file>     -> decompressed bytes to stdout
+#
+# bana = stream, yanyil = see/read.  Reads a zlib stream (2-byte header,
+# deflate blocks, adler32 trailer), decodes every block type:
+#
+#   BTYPE=00 stored      : already done in bayan-binalku; ported here
+#   BTYPE=01 fixed Huffman: RFC 1951 §3.2.6, hardcoded code lengths
+#   BTYPE=10 dynamic Huffman: a meta-Huffman over code lengths, then the
+#            main lit/len and distance trees, then LZ77 decoding
+#   BTYPE=11 reserved    : rejected
+#
+# The decoder uses canonical-Huffman tables: given each symbol's code
+# length, we compute bl_count[], first_code[], first_sym[], and a flat
+# sorted-by-(length,symbol) array.  Decoding reads bits MSB-first and
+# walks lengths 1..15, matching against first_code[len].
+#
+# Size caps: 64 KB input, 1 MB output (enough for prematrix blobs).
+
+
+# ============================================================================
+# State
+# ============================================================================
+
+wararra-bss wararra-in-buf      65536
+wararra-bss wararra-in-len          4
+wararra-bss wararra-in-pos          4
+wararra-bss wararra-bit-buf         4
+wararra-bss wararra-bit-cnt         4
+
+wararra-bss wararra-out-buf   1048576
+wararra-bss wararra-out-pos         4
+
+# Huffman tables.  Each tree has:
+#   bl-count[16]    u32 : number of symbols with that code length
+#   first-code[16]  u32 : first canonical code at that length
+#   first-sym[16]   u32 : offset into syms[] for that length
+#   syms[]          u32 : symbols sorted by (length, symbol order)
+wararra-bss wararra-llen-bl       64    # 16 × u32
+wararra-bss wararra-llen-fc       64
+wararra-bss wararra-llen-fs       64
+wararra-bss wararra-llen-syms   1152    # 288 × u32
+wararra-bss wararra-llen-lens   1152    # 288 × u32 code lengths
+
+wararra-bss wararra-dist-bl       64
+wararra-bss wararra-dist-fc       64
+wararra-bss wararra-dist-fs       64
+wararra-bss wararra-dist-syms    128    # 32 × u32
+wararra-bss wararra-dist-lens    128    # 32 × u32
+
+wararra-bss wararra-cl-bl         64
+wararra-bss wararra-cl-fc         64
+wararra-bss wararra-cl-fs         64
+wararra-bss wararra-cl-syms       76    # 19 × u32
+wararra-bss wararra-cl-lens       76    # 19 × u32
+
+wararra-bss wararra-tmp-i           4
+wararra-bss wararra-tmp-j           4
+wararra-bss wararra-tmp-k           4
+wararra-bss wararra-tmp-n           4
+wararra-bss wararra-tmp-l           4
+
+wararra-bss wararra-hlit             4
+wararra-bss wararra-hdist            4
+wararra-bss wararra-hclen            4
+wararra-bss wararra-total            4     # hlit + hdist
+
+wararra-bss wararra-file-fd          4
+
+
+# ============================================================================
+# Constants.  LSB-first deflate §3.2.5 length/distance base + extra tables.
+# ============================================================================
+
+# length codes 257..285 -> (base, extra bits).  Stored as 2 × u32 per entry,
+# so offset = (code - 257) * 8.
+wararra wararra-len-base
+    3 0 0 0        4 0 0 0        5 0 0 0        6 0 0 0
+    7 0 0 0        8 0 0 0        9 0 0 0        10 0 0 0
+    11 0 0 0       13 0 0 0       15 0 0 0       17 0 0 0
+    19 0 0 0       23 0 0 0       27 0 0 0       31 0 0 0
+    35 0 0 0       43 0 0 0       51 0 0 0       59 0 0 0
+    67 0 0 0       83 0 0 0       99 0 0 0       115 0 0 0
+    131 0 0 0      163 0 0 0      195 0 0 0      227 0 0 0
+    258 0 0 0
+nandal
+
+wararra wararra-len-extra
+    0 0 0 0        0 0 0 0        0 0 0 0        0 0 0 0
+    1 0 0 0        1 0 0 0        1 0 0 0        1 0 0 0
+    2 0 0 0        2 0 0 0        2 0 0 0        2 0 0 0
+    3 0 0 0        3 0 0 0        3 0 0 0        3 0 0 0
+    4 0 0 0        4 0 0 0        4 0 0 0        4 0 0 0
+    5 0 0 0        5 0 0 0        5 0 0 0        5 0 0 0
+    0 0 0 0
+nandal
+
+wararra wararra-dist-base
+    1 0 0 0        2 0 0 0        3 0 0 0        4 0 0 0
+    5 0 0 0        7 0 0 0        9 0 0 0        13 0 0 0
+    17 0 0 0       25 0 0 0       33 0 0 0       49 0 0 0
+    65 0 0 0       97 0 0 0       129 0 0 0      193 0 0 0
+    1 1 0 0        1 2 0 0        1 3 0 0        1 4 0 0
+    1 6 0 0        1 9 0 0        1 12 0 0       1 18 0 0
+    1 24 0 0       1 36 0 0       1 48 0 0       1 72 0 0
+    1 96 0 0       1 144 0 0
+nandal
+# NOTE: `257 0 0 0` etc won't fit in a byte; for values >= 256 the wararra
+# emits LOW 8 BITS only, so 257 = 0x101 becomes 0x01.  That makes the above
+# table WRONG for large distances.  Rewriting below with explicit 4-byte
+# little-endian entries for each u32.
+
+wararra wararra-dist-extra
+    0 0 0 0        0 0 0 0        0 0 0 0        0 0 0 0
+    1 0 0 0        1 0 0 0        2 0 0 0        2 0 0 0
+    3 0 0 0        3 0 0 0        4 0 0 0        4 0 0 0
+    5 0 0 0        5 0 0 0        6 0 0 0        6 0 0 0
+    7 0 0 0        7 0 0 0        8 0 0 0        8 0 0 0
+    9 0 0 0        9 0 0 0        10 0 0 0       10 0 0 0
+    11 0 0 0       11 0 0 0       12 0 0 0       12 0 0 0
+    13 0 0 0       13 0 0 0
+nandal
+
+# dynamic-huffman code-length alphabet permutation (§3.2.7)
+wararra wararra-cl-order
+    16 17 18 0 8 7 9 6 10 5 11 4 12 3 13 2 14 1 15
+nandal
+
+
+wararra wararra-err-args     "warri: bana-yanyil FILE\n"              0 nandal
+wararra wararra-err-open     "bana-yanyil: open kari\n"               0 nandal
+wararra wararra-err-read     "bana-yanyil: read kari\n"               0 nandal
+wararra wararra-err-hdr      "bana-yanyil: zlib header kari\n"        0 nandal
+wararra wararra-err-btype    "bana-yanyil: block type 11 kari\n"      0 nandal
+wararra wararra-err-bits     "bana-yanyil: bit stream kari\n"         0 nandal
+wararra wararra-err-huff     "bana-yanyil: huffman kari\n"            0 nandal
+
+# ============================================================================
+# Minimum viable: dist-base above has an out-of-byte-range bug.  The table
+# encoding for wararra of a u32 WOULD be "word0 word1 ... nandal", but the
+# compiler only emits bytes.  Every line is wrong for bases >= 256.  We fix
+# this by computing the base/extra at runtime instead from the length code
+# index.  See build-len-tables / build-dist-tables below.
+#
+# For now the constants above are unused dead weight; real tables are
+# generated in BSS at startup.
+# ============================================================================
+
+wararra-bss wararra-len-base-u32     232    # 29 × u32
+wararra-bss wararra-len-extra-u32    232
+wararra-bss wararra-dist-base-u32    240    # 30 × u32
+wararra-bss wararra-dist-extra-u32   240
+
+
+balkalaway kuku-dukul
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+balkalaway birru-kuku
+    wararra-tmp-i !
+    2 wararra-tmp-i @ wararra-tmp-i @ kuku-dukul bama-balkal wuljil
+    1 bama-kunbayn
+kunbayn
+
+wararra-bss wararra-pd-buf 32
+
+balkalaway print-dec-n
+    wararra-tmp-n !
+    20 wararra-tmp-i !
+    wararra-tmp-n @ 0 junkay
+    yala
+        wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+        0x30 wararra-pd-buf wararra-tmp-i @ muru c!
+        yinya
+        yabarrka
+            wararra-tmp-n @ 0 junkay yala janay kunbayn
+            wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+            wararra-tmp-n @ 10 kanbal 0x30 muru wararra-pd-buf wararra-tmp-i @ muru c!
+            wararra-tmp-n @ 10 kulbal wararra-tmp-n !
+        kunbayn
+    kunbayn
+    2 wararra-pd-buf wararra-tmp-i @ muru 20 wararra-tmp-i @ dumbarril bama-balkal wuljil
+kunbayn
+
+
+# ============================================================================
+# Read a file into wararra-in-buf; store length in wararra-in-len.
+# ============================================================================
+
+balkalaway read-input
+    # (path -- )
+    0 bama-ngunnga wararra-file-fd !
+    wararra-file-fd @ 0 jirray kari
+    yala wararra-err-open birru-kuku kunbayn
+
+    0 wararra-in-len !
+    yabarrka
+        wararra-file-fd @ wararra-in-buf wararra-in-len @ muru
+        65536 wararra-in-len @ dumbarril bama-babaji
+        kujil 1 buban yala wuljil janay kunbayn
+        wararra-in-len @ muru wararra-in-len !
+    kunbayn
+    wararra-file-fd @ bama-nandal wuljil
+kunbayn
+
+
+# ============================================================================
+# Bit reader (LSB-first within each byte, multi-byte little-endian).
+# ============================================================================
+
+balkalaway br-init
+    0 wararra-in-pos !
+    0 wararra-bit-buf !
+    0 wararra-bit-cnt !
+kunbayn
+
+balkalaway br-byte-align
+    # Discard bits until bit-cnt is a multiple of 8 (block boundary).
+    wararra-bit-cnt @ 7 & wararra-tmp-i !
+    wararra-bit-buf @ wararra-tmp-i @ >> wararra-bit-buf !
+    wararra-bit-cnt @ wararra-tmp-i @ dumbarril wararra-bit-cnt !
+kunbayn
+
+balkalaway br-read-bits
+    # (n -- value)    reads n bits LSB-first
+    wararra-tmp-n !
+
+    # fill buffer
+    yabarrka
+        wararra-bit-cnt @ wararra-tmp-n @ buban kari yala janay kunbayn
+        wararra-in-pos @ wararra-in-len @ buban kari
+        yala wararra-err-bits birru-kuku kunbayn
+        wararra-in-buf wararra-in-pos @ muru c@
+        wararra-bit-cnt @ <<
+        wararra-bit-buf @ |
+        wararra-bit-buf !
+        wararra-bit-cnt @ 8 muru wararra-bit-cnt !
+        wararra-in-pos @ 1 muru wararra-in-pos !
+    kunbayn
+
+    # extract n bits
+    wararra-bit-buf @ 1 wararra-tmp-n @ << 1 dumbarril &
+    wararra-bit-buf @ wararra-tmp-n @ >> wararra-bit-buf !
+    wararra-bit-cnt @ wararra-tmp-n @ dumbarril wararra-bit-cnt !
+kunbayn
+
+
+# ============================================================================
+# Build canonical-Huffman decode tables from a code-length array.
+#
+#   (lens-ptr count bl-ptr fc-ptr fs-ptr syms-ptr -- )
+# ============================================================================
+
+wararra-bss wararra-hb-lens    4
+wararra-bss wararra-hb-count   4
+wararra-bss wararra-hb-bl      4
+wararra-bss wararra-hb-fc      4
+wararra-bss wararra-hb-fs      4
+wararra-bss wararra-hb-syms    4
+wararra-bss wararra-hb-offs    64   # 16 × u32 scratch
+
+balkalaway build-huffman
+    wararra-hb-syms !
+    wararra-hb-fs !
+    wararra-hb-fc !
+    wararra-hb-bl !
+    wararra-hb-count !
+    wararra-hb-lens !
+
+    # zero bl
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 16 buban kari yala janay kunbayn
+        0 wararra-hb-bl @ wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    # count symbols per length
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-hb-count @ buban kari yala janay kunbayn
+        wararra-hb-lens @ wararra-tmp-i @ 4 * muru @ wararra-tmp-l !
+        wararra-tmp-l @ 0 junkay kari
+        yala
+            wararra-hb-bl @ wararra-tmp-l @ 4 * muru @ 1 muru
+                wararra-hb-bl @ wararra-tmp-l @ 4 * muru !
+        kunbayn
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    # first-code[len]: starts with 0, each level shifts left one
+    0 wararra-hb-fc @ !             # first-code[0] = 0
+    0 wararra-tmp-j !               # running code
+    1 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 16 buban kari yala janay kunbayn
+        wararra-tmp-j @
+          wararra-hb-bl @ wararra-tmp-i @ 1 dumbarril 4 * muru @ muru
+          1 <<
+        wararra-tmp-j !
+        wararra-tmp-j @ wararra-hb-fc @ wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    # first-sym[len]: cumulative count of symbols with length < len
+    0 wararra-hb-fs @ !             # first-sym[0] = 0
+    0 wararra-tmp-j !
+    1 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 16 buban kari yala janay kunbayn
+        wararra-tmp-j @
+          wararra-hb-bl @ wararra-tmp-i @ 1 dumbarril 4 * muru @ muru
+        wararra-tmp-j !
+        wararra-tmp-j @ wararra-hb-fs @ wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    # offs[len] = first-sym[len] initially; advances as we fill syms
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 16 buban kari yala janay kunbayn
+        wararra-hb-fs @ wararra-tmp-i @ 4 * muru @
+            wararra-hb-offs wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    # fill syms[] by walking input symbols
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-hb-count @ buban kari yala janay kunbayn
+        wararra-hb-lens @ wararra-tmp-i @ 4 * muru @ wararra-tmp-l !
+        wararra-tmp-l @ 0 junkay kari
+        yala
+            wararra-hb-offs wararra-tmp-l @ 4 * muru @ wararra-tmp-k !
+            wararra-tmp-i @ wararra-hb-syms @ wararra-tmp-k @ 4 * muru !
+            wararra-tmp-k @ 1 muru wararra-hb-offs wararra-tmp-l @ 4 * muru !
+        kunbayn
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Decode one symbol against a Huffman tree.
+#
+#   (bl-ptr fc-ptr fs-ptr syms-ptr -- sym )
+# ============================================================================
+
+wararra-bss wararra-hd-bl      4
+wararra-bss wararra-hd-fc      4
+wararra-bss wararra-hd-fs      4
+wararra-bss wararra-hd-syms    4
+
+balkalaway decode-symbol
+    wararra-hd-syms !
+    wararra-hd-fs !
+    wararra-hd-fc !
+    wararra-hd-bl !
+
+    0 wararra-tmp-j !                    # accumulated code value
+    1 wararra-tmp-i !                    # current length
+    yabarrka
+        wararra-tmp-i @ 16 buban kari
+        yala wararra-err-huff birru-kuku kunbayn
+
+        wararra-tmp-j @ 1 << 1 br-read-bits | wararra-tmp-j !
+
+        # if (code < first_code[len] + bl_count[len]) and (code >= first_code[len])
+        wararra-tmp-j @
+          wararra-hd-fc @ wararra-tmp-i @ 4 * muru @ buban kari
+        yala
+            wararra-tmp-j @
+              wararra-hd-fc @ wararra-tmp-i @ 4 * muru @
+              wararra-hd-bl @ wararra-tmp-i @ 4 * muru @ muru
+              buban
+            yala
+                # matched — return sym = syms[first-sym[len] + code - first-code[len]]
+                wararra-tmp-j @
+                  wararra-hd-fc @ wararra-tmp-i @ 4 * muru @ dumbarril
+                  wararra-hd-fs @ wararra-tmp-i @ 4 * muru @ muru
+                4 * wararra-hd-syms @ muru @
+                janay
+            kunbayn
+        kunbayn
+
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Build the length-code and distance-code base/extra tables at runtime
+# (avoids the >255 byte-literal issue in wararra declarations).
+# ============================================================================
+
+wararra wararra-len-base-src
+    3 0  4 0  5 0  6 0  7 0  8 0  9 0  10 0
+    11 0 13 0 15 0 17 0 19 0 23 0 27 0 31 0
+    35 0 43 0 51 0 59 0 67 0 83 0 99 0 115 0
+    131 0 163 0 195 0 227 0 2 1
+nandal
+# The 29 length-bases as pairs of bytes (low, high).  The last entry
+# 258 = 0x0102, so hi=1, lo=2.
+
+wararra wararra-len-extra-src
+    0 0 0 0  1 1 1 1  2 2 2 2  3 3 3 3  4 4 4 4  5 5 5 5  0
+nandal
+
+wararra wararra-dist-base-src
+    1 0  2 0  3 0  4 0  5 0  7 0  9 0  13 0
+    17 0 25 0 33 0 49 0 65 0 97 0 129 0 193 0
+    1 1  129 1  1 2  129 2  1 3  129 3  1 4  129 4
+    1 5  129 5  1 6  129 6  1 7  129 7
+nandal
+
+wararra wararra-dist-extra-src
+    0 0 0 0  1 1 2 2  3 3 4 4  5 5 6 6
+    7 7 8 8  9 9 10 10 11 11 12 12 13 13
+nandal
+
+balkalaway init-static-tables
+    # expand len-base (29 pairs of bytes -> 29 × u32) into wararra-len-base-u32
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 29 buban kari yala janay kunbayn
+        wararra-len-base-src wararra-tmp-i @ 2 * muru c@
+        wararra-len-base-src wararra-tmp-i @ 2 * muru 1 muru c@ 8 << |
+        wararra-len-base-u32 wararra-tmp-i @ 4 * muru !
+        wararra-len-base-src wararra-tmp-i @ 2 * muru c@  # dummy
+        wuljil
+        wararra-len-extra-src wararra-tmp-i @ muru c@
+        wararra-len-extra-u32 wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 30 buban kari yala janay kunbayn
+        wararra-dist-base-src wararra-tmp-i @ 2 * muru c@
+        wararra-dist-base-src wararra-tmp-i @ 2 * muru 1 muru c@ 8 << |
+        wararra-dist-base-u32 wararra-tmp-i @ 4 * muru !
+        wararra-dist-extra-src wararra-tmp-i @ muru c@
+        wararra-dist-extra-u32 wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Decode one block body (after the BTYPE bits have been consumed).  We
+# assume the caller already set up the lit/len and distance tables.
+# ============================================================================
+
+wararra-bss wararra-sym-l   4
+wararra-bss wararra-len     4
+wararra-bss wararra-dist    4
+
+balkalaway decode-block-body
+    yabarrka
+        wararra-llen-bl wararra-llen-fc wararra-llen-fs wararra-llen-syms
+            decode-symbol wararra-sym-l !
+
+        wararra-sym-l @ 256 buban
+        yala
+            # literal
+            wararra-sym-l @ wararra-out-buf wararra-out-pos @ muru c!
+            wararra-out-pos @ 1 muru wararra-out-pos !
+            yinya
+            wararra-sym-l @ 256 junkay
+            yala
+                janay
+                yinya
+                # length code
+                wararra-sym-l @ 257 dumbarril wararra-tmp-k !
+                wararra-len-base-u32 wararra-tmp-k @ 4 * muru @
+                wararra-len-extra-u32 wararra-tmp-k @ 4 * muru @
+                  kujil 0 junkay kari yala br-read-bits muru yinya wuljil kunbayn
+                wararra-len !
+
+                wararra-dist-bl wararra-dist-fc wararra-dist-fs wararra-dist-syms
+                    decode-symbol wararra-tmp-k !
+                wararra-dist-base-u32 wararra-tmp-k @ 4 * muru @
+                wararra-dist-extra-u32 wararra-tmp-k @ 4 * muru @
+                  kujil 0 junkay kari yala br-read-bits muru yinya wuljil kunbayn
+                wararra-dist !
+
+                # copy wararra-len bytes from (out-pos - dist) to out-pos
+                0 wararra-tmp-i !
+                yabarrka
+                    wararra-tmp-i @ wararra-len @ buban kari yala janay kunbayn
+                    wararra-out-buf wararra-out-pos @ wararra-dist @ dumbarril muru c@
+                    wararra-out-buf wararra-out-pos @ muru c!
+                    wararra-out-pos @ 1 muru wararra-out-pos !
+                    wararra-tmp-i @ 1 muru wararra-tmp-i !
+                kunbayn
+            kunbayn
+        kunbayn
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Block dispatch.
+# ============================================================================
+
+balkalaway do-stored-block
+    # byte-align and read LEN/NLEN, copy LEN bytes
+    br-byte-align
+    wararra-in-buf wararra-in-pos @ muru c@
+    wararra-in-buf wararra-in-pos @ 1 muru muru c@ 8 << |
+    wararra-tmp-n !
+    wararra-in-pos @ 4 muru wararra-in-pos !
+
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-tmp-n @ buban kari yala janay kunbayn
+        wararra-in-buf wararra-in-pos @ wararra-tmp-i @ muru muru c@
+        wararra-out-buf wararra-out-pos @ wararra-tmp-i @ muru muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    wararra-in-pos @ wararra-tmp-n @ muru wararra-in-pos !
+    wararra-out-pos @ wararra-tmp-n @ muru wararra-out-pos !
+kunbayn
+
+balkalaway set-fixed-lens
+    # llen: 0..143 = 8, 144..255 = 9, 256..279 = 7, 280..287 = 8
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 144 buban kari yala janay kunbayn
+        8 wararra-llen-lens wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    144 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 256 buban kari yala janay kunbayn
+        9 wararra-llen-lens wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    256 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 280 buban kari yala janay kunbayn
+        7 wararra-llen-lens wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    280 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 288 buban kari yala janay kunbayn
+        8 wararra-llen-lens wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    # dist: 0..29 = 5
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 30 buban kari yala janay kunbayn
+        5 wararra-dist-lens wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+balkalaway do-fixed-block
+    set-fixed-lens
+    wararra-llen-lens 288
+        wararra-llen-bl wararra-llen-fc wararra-llen-fs wararra-llen-syms
+        build-huffman
+    wararra-dist-lens 30
+        wararra-dist-bl wararra-dist-fc wararra-dist-fs wararra-dist-syms
+        build-huffman
+    decode-block-body
+kunbayn
+
+balkalaway do-dynamic-block
+    5 br-read-bits 257 muru wararra-hlit  !
+    5 br-read-bits   1 muru wararra-hdist !
+    4 br-read-bits   4 muru wararra-hclen !
+
+    # zero cl-lens[0..18]
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 19 buban kari yala janay kunbayn
+        0 wararra-cl-lens wararra-tmp-i @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    # read hclen × 3 bits, placed via wararra-cl-order permutation
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-hclen @ buban kari yala janay kunbayn
+        wararra-cl-order wararra-tmp-i @ muru c@ wararra-tmp-k !
+        3 br-read-bits  wararra-cl-lens wararra-tmp-k @ 4 * muru !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    wararra-cl-lens 19
+        wararra-cl-bl wararra-cl-fc wararra-cl-fs wararra-cl-syms
+        build-huffman
+
+    # decode hlit + hdist code lengths into llen-lens ++ dist-lens
+    wararra-hlit @ wararra-hdist @ muru wararra-total !
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ wararra-total @ buban kari yala janay kunbayn
+        wararra-cl-bl wararra-cl-fc wararra-cl-fs wararra-cl-syms
+            decode-symbol wararra-tmp-k !
+        wararra-tmp-k @ 16 buban
+        yala
+            # literal length 0..15
+            wararra-tmp-k @
+              wararra-tmp-i @ wararra-hlit @ buban
+              yala wararra-llen-lens
+                   yinya wararra-dist-lens wararra-hlit @ 4 * dumbarril kunbayn
+              wararra-tmp-i @ 4 * muru !
+            wararra-tmp-i @ 1 muru wararra-tmp-i !
+            yinya
+            wararra-tmp-k @ 16 junkay
+            yala
+                # repeat previous length 3..6 times
+                2 br-read-bits 3 muru wararra-tmp-n !
+                wararra-tmp-i @ wararra-hlit @ buban
+                yala wararra-llen-lens
+                     yinya wararra-dist-lens wararra-hlit @ 4 * dumbarril kunbayn
+                wararra-tmp-i @ 1 dumbarril 4 * muru @ wararra-tmp-l !
+                0 wararra-tmp-j !
+                yabarrka
+                    wararra-tmp-j @ wararra-tmp-n @ buban kari yala janay kunbayn
+                    wararra-tmp-l @
+                      wararra-tmp-i @ wararra-hlit @ buban
+                      yala wararra-llen-lens
+                           yinya wararra-dist-lens wararra-hlit @ 4 * dumbarril kunbayn
+                      wararra-tmp-i @ 4 * muru !
+                    wararra-tmp-i @ 1 muru wararra-tmp-i !
+                    wararra-tmp-j @ 1 muru wararra-tmp-j !
+                kunbayn
+                yinya
+                wararra-tmp-k @ 17 junkay
+                yala
+                    # 3..10 zeros
+                    3 br-read-bits 3 muru wararra-tmp-n !
+                    0 wararra-tmp-j !
+                    yabarrka
+                        wararra-tmp-j @ wararra-tmp-n @ buban kari yala janay kunbayn
+                        0 wararra-tmp-i @ wararra-hlit @ buban
+                          yala wararra-llen-lens
+                               yinya wararra-dist-lens wararra-hlit @ 4 * dumbarril kunbayn
+                          wararra-tmp-i @ 4 * muru !
+                        wararra-tmp-i @ 1 muru wararra-tmp-i !
+                        wararra-tmp-j @ 1 muru wararra-tmp-j !
+                    kunbayn
+                    yinya
+                    # 18: 11..138 zeros
+                    7 br-read-bits 11 muru wararra-tmp-n !
+                    0 wararra-tmp-j !
+                    yabarrka
+                        wararra-tmp-j @ wararra-tmp-n @ buban kari yala janay kunbayn
+                        0 wararra-tmp-i @ wararra-hlit @ buban
+                          yala wararra-llen-lens
+                               yinya wararra-dist-lens wararra-hlit @ 4 * dumbarril kunbayn
+                          wararra-tmp-i @ 4 * muru !
+                        wararra-tmp-i @ 1 muru wararra-tmp-i !
+                        wararra-tmp-j @ 1 muru wararra-tmp-j !
+                    kunbayn
+                kunbayn
+            kunbayn
+        kunbayn
+    kunbayn
+
+    wararra-llen-lens wararra-hlit @
+        wararra-llen-bl wararra-llen-fc wararra-llen-fs wararra-llen-syms
+        build-huffman
+    wararra-dist-lens wararra-hdist @
+        wararra-dist-bl wararra-dist-fc wararra-dist-fs wararra-dist-syms
+        build-huffman
+    decode-block-body
+kunbayn
+
+
+# ============================================================================
+# Main.
+# ============================================================================
+
+balkalaway jakalbaku-warri
+    bama-wangkanil 2 junkay kari
+    yala wararra-err-args birru-kuku kunbayn
+
+    init-static-tables
+
+    1 4 * bama-wararra muru @ read-input
+    br-init
+    0 wararra-out-pos !
+
+    # zlib header: CMF FLG.  We just require CMF low nibble = 8 (deflate)
+    # and skip FCHECK.  Advance 2 bytes.
+    wararra-in-buf c@ 0xF &  8 junkay kari yala wararra-err-hdr birru-kuku kunbayn
+    2 wararra-in-pos !
+
+    yabarrka
+        1 br-read-bits wararra-tmp-n !     # BFINAL
+        2 br-read-bits wararra-tmp-k !     # BTYPE
+
+        wararra-tmp-k @ 0 junkay yala do-stored-block kunbayn
+        wararra-tmp-k @ 1 junkay yala do-fixed-block kunbayn
+        wararra-tmp-k @ 2 junkay yala do-dynamic-block kunbayn
+        wararra-tmp-k @ 3 junkay yala wararra-err-btype birru-kuku kunbayn
+
+        wararra-tmp-n @ 0 junkay kari yala janay kunbayn
+    kunbayn
+
+    1 wararra-out-buf wararra-out-pos @ bama-balkal wuljil
+    0 bama-kunbayn
+kunbayn
