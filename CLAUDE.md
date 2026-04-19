@@ -9,9 +9,12 @@ feature from that primitive in a `.kuku` file.
 
 Concretely, **do not**:
 
-- use `tectonic` / `pdflatex` / `xelatex` / any TeX distribution to turn
-  Kuku-emitted LaTeX into a PDF. The PDF generator has to be written in
-  Kuku.
+- use `tectonic` / `pdflatex` / `xelatex` / any TeX distribution, or
+  emit LaTeX source for one to consume. Kuku doesn't have a PDF
+  generator and emitting `.tex` for an external tool to render is the
+  exact shortcut this rule forbids. When we want documents, the whole
+  pipeline — layout, font metrics, PDF object tree, xref table — has
+  to be Kuku.
 - wrap the Kuku HTTP server in a reverse proxy (nginx, caddy), TLS
   terminator, or even a systemd-level connection multiplexer. TLS, HTTP
   parsing, and request routing all have to be Kuku.

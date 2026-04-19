@@ -249,13 +249,12 @@ against published test vectors (non-zero exit on mismatch).
 | `curve25519-x25519.kuku` | RFC 7748 |
 | `ed25519-sign.kuku` | RFC 8032 vector 1 |
 | `dambun.kuku` | character-level Transformer: Value-based autograd, multi-head attention, Adam, temperature sampling |
-| `paper.kuku` | writes a LaTeX paper about `dambun.kuku` to `/tmp/dambun-paper.tex` |
+| `bayan-daya.kuku` | HTTP server on port 80 — socket/bind/listen/accept loop via the `bama-wari` socketcall primitive |
 
 `dambun.kuku` trains from cross-entropy `log(27)` to about `1.01` in 100
 single-example Adam steps on the 32 k US first-names corpus, and samples
-20 names to stdout. Full write-up on the
-[HuggingFace repo](https://huggingface.co/ajaxdavis/kuku-dambun) including
-the PDF.
+20 names to stdout. Weights, training corpus, and source on the
+[HuggingFace repo](https://huggingface.co/ajaxdavis/kuku-dambun).
 
 ## Floating point
 
