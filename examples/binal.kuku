@@ -1,0 +1,270 @@
+# binal.kuku  --  DNS A-record resolver in Kuku.
+#
+#   ./kuku-bama/ngunnga --bama /tmp/binal examples/binal.kuku
+#   /tmp/binal github.com           # prints 140.82.121.3 (or current IP)
+#
+# binal = know.  Ask 8.8.8.8 for a hostname's IPv4 address.
+#
+# RFC 1035 DNS over UDP.  Sends one A-record query, parses the first A
+# answer out of the response, prints it as dotted quad.  Handles DNS
+# compression pointers in the NAME field.
+
+
+# ============================================================================
+# UDP socket + DNS server = 8.8.8.8:53
+# ============================================================================
+
+wararra wararra-dns-server
+    0x02 0x00                           # AF_INET
+    0x00 0x35                           # port 53 (network byte order)
+    0x08 0x08 0x08 0x08                 # 8.8.8.8
+    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-args-socket-udp
+    0x02 0x00 0x00 0x00                 # AF_INET
+    0x02 0x00 0x00 0x00                 # SOCK_DGRAM = 2
+    0x00 0x00 0x00 0x00
+nandal
+
+wararra-bss wararra-args-connect  12
+
+wararra-bss wararra-dns-fd        4
+wararra-bss wararra-dns-query  1024
+wararra-bss wararra-dns-qlen      4
+wararra-bss wararra-dns-resp   4096
+wararra-bss wararra-dns-rlen      4
+
+wararra-bss wararra-dns-host      4     # saved argv[1] pointer
+wararra-bss wararra-dns-walk      4     # moving pointer into host
+wararra-bss wararra-dns-laboff    4     # offset of current label-length byte
+wararra-bss wararra-dns-cursor    4     # parse cursor into response
+
+wararra-bss wararra-tmp-i         4
+wararra-bss wararra-tmp-j         4
+wararra-bss wararra-tmp-k         4
+wararra-bss wararra-tmp-n         4
+
+
+wararra wararra-dot  "." 0 nandal
+wararra wararra-nl   "\n" 0 nandal
+
+wararra wararra-err-args     "warri: binal HOSTNAME\n"              0 nandal
+wararra wararra-err-socket   "binal: socket kari\n"                 0 nandal
+wararra wararra-err-connect  "binal: connect kari\n"                0 nandal
+wararra wararra-err-send     "binal: send kari\n"                   0 nandal
+wararra wararra-err-recv     "binal: recv kari\n"                   0 nandal
+wararra wararra-err-noanswer "binal: no A record\n"                 0 nandal
+
+
+# ============================================================================
+# Helpers
+# ============================================================================
+
+balkalaway kuku-dukul
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+balkalaway birru-kuku
+    wararra-tmp-i !
+    2 wararra-tmp-i @ wararra-tmp-i @ kuku-dukul bama-balkal wuljil
+    1 bama-kunbayn
+kunbayn
+
+wararra-bss wararra-pd-buf 32
+
+balkalaway print-dec
+    # (n --)   writes unsigned decimal + \0 to stdout via wararra-pd-buf
+    wararra-tmp-n !
+    20 wararra-tmp-i !                             # write cursor (offset)
+    wararra-tmp-n @ 0 junkay
+    yala
+        wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+        0x30 wararra-pd-buf wararra-tmp-i @ muru c!
+        yinya
+        yabarrka
+            wararra-tmp-n @ 0 junkay yala janay kunbayn
+            wararra-tmp-i @ 1 dumbarril wararra-tmp-i !
+            wararra-tmp-n @ 10 kanbal 0x30 muru wararra-pd-buf wararra-tmp-i @ muru c!
+            wararra-tmp-n @ 10 kulbal wararra-tmp-n !
+        kunbayn
+    kunbayn
+    1 wararra-pd-buf wararra-tmp-i @ muru
+        20 wararra-tmp-i @ dumbarril bama-balkal wuljil
+kunbayn
+
+
+# ============================================================================
+# Build the DNS query for the hostname at wararra-dns-host into
+# wararra-dns-query.  Length ends up in wararra-dns-qlen.
+# ============================================================================
+
+balkalaway dns-build-query
+    # 12-byte header: ID=0x1234, FLAGS=0x0100 (standard query, RD), QD=1
+    0x12 wararra-dns-query         c!
+    0x34 wararra-dns-query  1 muru c!
+    0x01 wararra-dns-query  2 muru c!
+    0x00 wararra-dns-query  3 muru c!
+    0x00 wararra-dns-query  4 muru c!
+    0x01 wararra-dns-query  5 muru c!
+    0x00 wararra-dns-query  6 muru c!
+    0x00 wararra-dns-query  7 muru c!
+    0x00 wararra-dns-query  8 muru c!
+    0x00 wararra-dns-query  9 muru c!
+    0x00 wararra-dns-query 10 muru c!
+    0x00 wararra-dns-query 11 muru c!
+
+    # labels: leave offset 12 empty for the first label's length byte, start
+    # writing characters at offset 13.
+    12 wararra-dns-laboff !
+    13 wararra-dns-qlen !
+
+    wararra-dns-host @ wararra-dns-walk !
+
+    yabarrka
+        wararra-dns-walk @ c@
+        kujil 0 junkay yala wuljil janay kunbayn
+
+        kujil 0x2E junkay
+        yala
+            wuljil
+            # end of a label — backpatch length, move laboff
+            wararra-dns-qlen @ wararra-dns-laboff @ dumbarril 1 dumbarril
+                wararra-dns-query wararra-dns-laboff @ muru c!
+            wararra-dns-qlen @ wararra-dns-laboff !
+            wararra-dns-qlen @ 1 muru wararra-dns-qlen !
+            yinya
+            wararra-dns-query wararra-dns-qlen @ muru c!
+            wararra-dns-qlen @ 1 muru wararra-dns-qlen !
+        kunbayn
+
+        wararra-dns-walk @ 1 muru wararra-dns-walk !
+    kunbayn
+
+    # backpatch the last label's length
+    wararra-dns-qlen @ wararra-dns-laboff @ dumbarril 1 dumbarril
+        wararra-dns-query wararra-dns-laboff @ muru c!
+
+    # null terminator
+    0 wararra-dns-query wararra-dns-qlen @ muru c!
+    wararra-dns-qlen @ 1 muru wararra-dns-qlen !
+
+    # QTYPE = 0x0001 (A), big-endian
+    0 wararra-dns-query wararra-dns-qlen @ muru             c!
+    1 wararra-dns-query wararra-dns-qlen @ 1 muru muru       c!
+    wararra-dns-qlen @ 2 muru wararra-dns-qlen !
+
+    # QCLASS = 0x0001 (IN)
+    0 wararra-dns-query wararra-dns-qlen @ muru             c!
+    1 wararra-dns-query wararra-dns-qlen @ 1 muru muru       c!
+    wararra-dns-qlen @ 2 muru wararra-dns-qlen !
+kunbayn
+
+
+# ============================================================================
+# Skip a DNS name starting at (resp + offset).  Handles length-prefixed
+# labels and 0xC0-compression pointers.  Returns the offset immediately
+# after the name.
+#   ( offset -- new-offset )
+# ============================================================================
+
+balkalaway dns-skip-name
+    yabarrka
+        kujil wararra-dns-resp muru c@        # stack: (offset, byte)
+        kujil 0 junkay                         # stack: (offset, byte, byte==0)
+        yala wuljil 1 muru janay kunbayn       # drop byte, offset+=1, done
+        kujil 0xC0 & 0xC0 junkay               # compression pointer?
+        yala wuljil 2 muru janay kunbayn       # drop byte, offset+=2, done
+        wuljil                                  # regular label: drop byte
+        kujil wararra-dns-resp muru c@         # read length byte N
+        1 muru muru                             # offset += N + 1
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Main.
+# ============================================================================
+
+balkalaway jakalbaku-warri
+    bama-wangkanil 2 junkay kari
+    yala wararra-err-args birru-kuku kunbayn
+
+    1 4 * bama-wararra muru @ wararra-dns-host !
+
+    # socket(AF_INET, SOCK_DGRAM, 0)
+    wararra-args-socket-udp 1 bama-wari
+    kujil 0 buban yala wararra-err-socket birru-kuku kunbayn
+    wararra-dns-fd !
+
+    # connect(fd, &dns-server, 16)
+    wararra-dns-fd @     wararra-args-connect             !
+    wararra-dns-server   wararra-args-connect  4 muru      !
+    16                   wararra-args-connect  8 muru      !
+    wararra-args-connect 3 bama-wari
+    kujil 0 buban yala wararra-err-connect birru-kuku kunbayn
+    wuljil
+
+    dns-build-query
+
+    # send
+    wararra-dns-fd @ wararra-dns-query wararra-dns-qlen @ bama-balkal
+    kujil 0 buban yala wararra-err-send birru-kuku kunbayn
+    wuljil
+
+
+    # recv (one packet)
+    wararra-dns-fd @ wararra-dns-resp 4096 bama-babaji
+    kujil 1 buban yala wararra-err-recv birru-kuku kunbayn
+    wararra-dns-rlen !
+
+
+    wararra-dns-fd @ bama-nandal wuljil
+
+    # ANCOUNT is at resp offset 6 (big-endian 16-bit)
+    wararra-dns-resp 6 muru c@ 8 <<
+    wararra-dns-resp 7 muru c@ |
+    0 junkay
+    yala wararra-err-noanswer birru-kuku kunbayn
+
+    # skip header (12) + question (name + 4 bytes qtype/qclass)
+    12 dns-skip-name wararra-dns-cursor !
+    wararra-dns-cursor @ 4 muru wararra-dns-cursor !
+
+    # walk answer records until we find a TYPE=A (0x0001)
+    yabarrka
+        wararra-dns-cursor @ wararra-dns-rlen @ buban kari
+        yala wararra-err-noanswer birru-kuku kunbayn
+
+        # skip NAME
+        wararra-dns-cursor @ dns-skip-name wararra-dns-cursor !
+
+        # TYPE (2 bytes, big-endian)
+        wararra-dns-resp wararra-dns-cursor @ muru c@ 8 <<
+        wararra-dns-resp wararra-dns-cursor @ 1 muru muru c@ |
+        1 junkay                                    # TYPE == 1 ?
+        yala
+            # print resp[cursor + 10 .. cursor + 14] as dotted quad
+            # (cursor points at TYPE; 2 TYPE + 2 CLASS + 4 TTL + 2 RDLEN = 10)
+            wararra-dns-resp wararra-dns-cursor @ 10 muru muru c@ print-dec
+            1 wararra-dot 1 bama-balkal wuljil
+            wararra-dns-resp wararra-dns-cursor @ 11 muru muru c@ print-dec
+            1 wararra-dot 1 bama-balkal wuljil
+            wararra-dns-resp wararra-dns-cursor @ 12 muru muru c@ print-dec
+            1 wararra-dot 1 bama-balkal wuljil
+            wararra-dns-resp wararra-dns-cursor @ 13 muru muru c@ print-dec
+            1 wararra-nl 1 bama-balkal wuljil
+            0 bama-kunbayn
+        kunbayn
+
+        # not an A record — skip (2 TYPE + 2 CLASS + 4 TTL + 2 RDLEN + RDLEN)
+        wararra-dns-resp wararra-dns-cursor @ 8 muru muru c@ 8 <<
+        wararra-dns-resp wararra-dns-cursor @ 9 muru muru c@ |
+        wararra-dns-cursor @ 10 muru muru wararra-dns-cursor !
+    kunbayn
+kunbayn
