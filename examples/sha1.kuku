@@ -1,0 +1,371 @@
+# sha1.kuku  --  SHA-1 (FIPS 180-4 / RFC 3174) in Kuku.
+#
+# Stand-alone test: hashes the RFC 3174 vectors and exits non-zero on mismatch.
+#
+# Also exposes the state + three words (sha1-init, sha1-update, sha1-final) for
+# other Kuku programs that need a real hash — specifically, the git client that
+# identifies every object by its SHA-1.
+#
+#   sha1-init             reset H, fill, length
+#   ( ptr n -- )  sha1-update    absorb n bytes at ptr
+#   sha1-final            pad + process last block; digest is at wararra-sha1-h
+
+
+# ============================================================================
+# State.  H is 5 big-endian u32 words; we keep it as 20 bytes and word-load
+# with sha1-h-get / sha1-h-put.
+# ============================================================================
+
+wararra-bss wararra-sha1-h        20       # 5 × u32 big-endian
+wararra-bss wararra-sha1-block    64       # current 512-bit block buffer
+wararra-bss wararra-sha1-fill      4       # bytes currently in block (0..64)
+wararra-bss wararra-sha1-len-lo    4       # bit length, low 32
+wararra-bss wararra-sha1-len-hi    4       # bit length, high 32
+wararra-bss wararra-sha1-w       320       # 80 × u32 message schedule
+
+wararra-bss wararra-sha1-a   4
+wararra-bss wararra-sha1-b   4
+wararra-bss wararra-sha1-c   4
+wararra-bss wararra-sha1-d   4
+wararra-bss wararra-sha1-e   4
+wararra-bss wararra-sha1-t   4
+wararra-bss wararra-sha1-temp 4
+wararra-bss wararra-sha1-f   4
+wararra-bss wararra-sha1-k   4
+wararra-bss wararra-sha1-tmp 4
+wararra-bss wararra-sha1-save-hi 4
+wararra-bss wararra-sha1-save-lo 4
+
+
+# ============================================================================
+# Helpers
+# ============================================================================
+
+balkalaway sha1-rotl
+    # (x n -- rotated)
+    wararra-sha1-tmp !                   # n
+    kujil wararra-sha1-tmp @ <<
+    wundil wararra-sha1-tmp @ 32 wundil dumbarril >>
+    |
+kunbayn
+
+balkalaway sha1-u32-be-load
+    # (ptr -- u32)   big-endian 32-bit load
+    kujil c@ 24 <<
+    wundil 1 muru kujil c@ 16 << wundil
+    1 muru kujil c@ 8 << wundil
+    1 muru c@
+    | | |
+kunbayn
+
+balkalaway sha1-u32-be-store
+    # (value ptr --)
+    wararra-sha1-tmp !
+    kujil 24 >> 0xFF & wararra-sha1-tmp @         c!
+    kujil 16 >> 0xFF & wararra-sha1-tmp @ 1 muru  c!
+    kujil  8 >> 0xFF & wararra-sha1-tmp @ 2 muru  c!
+           0xFF & wararra-sha1-tmp @ 3 muru  c!
+kunbayn
+
+balkalaway sha1-h-get
+    # (i -- u32)   i in [0,4]; loads H[i]
+    4 * wararra-sha1-h muru sha1-u32-be-load
+kunbayn
+
+balkalaway sha1-h-put
+    # (value i --) write H[i]
+    4 * wararra-sha1-h muru sha1-u32-be-store
+kunbayn
+
+balkalaway sha1-w-get
+    # (i -- u32)
+    4 * wararra-sha1-w muru @
+kunbayn
+
+balkalaway sha1-w-put
+    # (value i --)
+    4 * wararra-sha1-w muru !
+kunbayn
+
+
+# ============================================================================
+# sha1-init:  reset H to initial values, clear buffer and length.
+# ============================================================================
+
+balkalaway sha1-init
+    0x67452301  0 sha1-h-put
+    0xEFCDAB89  1 sha1-h-put
+    0x98BADCFE  2 sha1-h-put
+    0x10325476  3 sha1-h-put
+    0xC3D2E1F0  4 sha1-h-put
+    0 wararra-sha1-fill !
+    0 wararra-sha1-len-lo !
+    0 wararra-sha1-len-hi !
+kunbayn
+
+
+# ============================================================================
+# sha1-block:  process the 64 bytes currently in wararra-sha1-block.
+# ============================================================================
+
+balkalaway sha1-block
+    # Expand message: W[0..15] from block (big-endian), W[16..79] = ROL1 of xor.
+    0 wararra-sha1-t !
+    yabarrka
+        wararra-sha1-t @ 16 buban kari yala janay kunbayn
+        wararra-sha1-block wararra-sha1-t @ 4 * muru sha1-u32-be-load
+        wararra-sha1-t @ sha1-w-put
+        wararra-sha1-t @ 1 muru wararra-sha1-t !
+    kunbayn
+
+    16 wararra-sha1-t !
+    yabarrka
+        wararra-sha1-t @ 80 buban kari yala janay kunbayn
+        wararra-sha1-t @  3 dumbarril sha1-w-get
+        wararra-sha1-t @  8 dumbarril sha1-w-get ^
+        wararra-sha1-t @ 14 dumbarril sha1-w-get ^
+        wararra-sha1-t @ 16 dumbarril sha1-w-get ^
+        1 sha1-rotl
+        wararra-sha1-t @ sha1-w-put
+        wararra-sha1-t @ 1 muru wararra-sha1-t !
+    kunbayn
+
+    # a,b,c,d,e = H0..H4
+    0 sha1-h-get wararra-sha1-a !
+    1 sha1-h-get wararra-sha1-b !
+    2 sha1-h-get wararra-sha1-c !
+    3 sha1-h-get wararra-sha1-d !
+    4 sha1-h-get wararra-sha1-e !
+
+    0 wararra-sha1-t !
+    yabarrka
+        wararra-sha1-t @ 80 buban kari yala janay kunbayn
+
+        # f and k by quarter
+        wararra-sha1-t @ 20 buban
+        yala
+            # (B AND C) OR (NOT B AND D)
+            wararra-sha1-b @ wararra-sha1-c @ &
+            wararra-sha1-b @ -1 ^ wararra-sha1-d @ &
+            |   wararra-sha1-f !
+            0x5A827999 wararra-sha1-k !
+            yinya
+            wararra-sha1-t @ 40 buban
+            yala
+                # B XOR C XOR D
+                wararra-sha1-b @ wararra-sha1-c @ ^
+                wararra-sha1-d @ ^   wararra-sha1-f !
+                0x6ED9EBA1 wararra-sha1-k !
+                yinya
+                wararra-sha1-t @ 60 buban
+                yala
+                    # (B AND C) OR (B AND D) OR (C AND D)
+                    wararra-sha1-b @ wararra-sha1-c @ &
+                    wararra-sha1-b @ wararra-sha1-d @ &
+                    wararra-sha1-c @ wararra-sha1-d @ &
+                    | |   wararra-sha1-f !
+                    0x8F1BBCDC wararra-sha1-k !
+                    yinya
+                    wararra-sha1-b @ wararra-sha1-c @ ^
+                    wararra-sha1-d @ ^   wararra-sha1-f !
+                    0xCA62C1D6 wararra-sha1-k !
+                kunbayn
+            kunbayn
+        kunbayn
+
+        # temp = ROL5(a) + f + e + W[t] + k
+        wararra-sha1-a @ 5 sha1-rotl
+        wararra-sha1-f @ muru
+        wararra-sha1-e @ muru
+        wararra-sha1-t @ sha1-w-get muru
+        wararra-sha1-k @ muru
+        wararra-sha1-temp !
+
+        wararra-sha1-d @ wararra-sha1-e !
+        wararra-sha1-c @ wararra-sha1-d !
+        wararra-sha1-b @ 30 sha1-rotl wararra-sha1-c !
+        wararra-sha1-a @ wararra-sha1-b !
+        wararra-sha1-temp @ wararra-sha1-a !
+
+        wararra-sha1-t @ 1 muru wararra-sha1-t !
+    kunbayn
+
+    # H += a,b,c,d,e
+    0 sha1-h-get wararra-sha1-a @ muru  0 sha1-h-put
+    1 sha1-h-get wararra-sha1-b @ muru  1 sha1-h-put
+    2 sha1-h-get wararra-sha1-c @ muru  2 sha1-h-put
+    3 sha1-h-get wararra-sha1-d @ muru  3 sha1-h-put
+    4 sha1-h-get wararra-sha1-e @ muru  4 sha1-h-put
+kunbayn
+
+
+# ============================================================================
+# sha1-update: absorb bytes.  Copies into the current block; whenever the
+# block fills, runs sha1-block and restarts.
+# ============================================================================
+
+balkalaway sha1-update
+    # (ptr n --)
+    wararra-sha1-tmp !                   # n
+    yabarrka
+        wararra-sha1-tmp @ 0 junkay yala janay kunbayn
+        kujil c@
+        wararra-sha1-block wararra-sha1-fill @ muru c!
+
+        wararra-sha1-fill @ 1 muru wararra-sha1-fill !
+        # increment length by 8 bits
+        wararra-sha1-len-lo @ 8 muru
+        kujil wararra-sha1-len-lo @ buban
+        yala wararra-sha1-len-hi @ 1 muru wararra-sha1-len-hi ! kunbayn
+        wararra-sha1-len-lo !
+
+        wararra-sha1-fill @ 64 junkay
+        yala
+            sha1-block
+            0 wararra-sha1-fill !
+        kunbayn
+
+        1 muru                             # advance ptr
+        wararra-sha1-tmp @ 1 dumbarril wararra-sha1-tmp !
+    kunbayn
+    wuljil                                 # drop the (now consumed) ptr
+kunbayn
+
+
+# ============================================================================
+# sha1-final: pad and process the final block(s).  Digest ends up in
+# wararra-sha1-h as 20 big-endian bytes.
+# ============================================================================
+
+balkalaway sha1-final
+    # save length in slots sha1-block doesn't touch (sha1-block uses -a / -b)
+    wararra-sha1-len-hi @ wararra-sha1-save-hi !
+    wararra-sha1-len-lo @ wararra-sha1-save-lo !
+
+    # append 0x80
+    0x80 wararra-sha1-block wararra-sha1-fill @ muru c!
+    wararra-sha1-fill @ 1 muru wararra-sha1-fill !
+
+    # pad zeros until fill == 56 (leaving 8 bytes for length)
+    yabarrka
+        wararra-sha1-fill @ 56 junkay yala janay kunbayn
+        0 wararra-sha1-block wararra-sha1-fill @ muru c!
+        wararra-sha1-fill @ 1 muru wararra-sha1-fill !
+        wararra-sha1-fill @ 64 junkay
+        yala
+            sha1-block
+            0 wararra-sha1-fill !
+        kunbayn
+    kunbayn
+
+    # append 64-bit big-endian length (saved bit count)
+    wararra-sha1-save-hi @ wararra-sha1-block 56 muru sha1-u32-be-store
+    wararra-sha1-save-lo @ wararra-sha1-block 60 muru sha1-u32-be-store
+    sha1-block
+    0 wararra-sha1-fill !
+kunbayn
+
+
+# ============================================================================
+# Test vectors (RFC 3174).
+#
+#   "abc"                                                     → a9993e36...
+#   "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+#                                                             → 84983e44...
+# ============================================================================
+
+wararra wararra-msg1  "abc" 0 nandal
+wararra wararra-msg-abcd "abcd" 0 nandal
+wararra wararra-msg2  "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" 0 nandal
+
+wararra wararra-expect-abcd
+    0x81 0xfe 0x8b 0xfe  0x87 0x57 0x6c 0x3e
+    0xcb 0x22 0x42 0x6f  0x8e 0x57 0x84 0x73
+    0x82 0x91 0x7a 0xcf
+nandal
+
+wararra wararra-expect1
+    0xa9 0x99 0x3e 0x36  0x47 0x06 0x81 0x6a
+    0xba 0x3e 0x25 0x71  0x78 0x50 0xc2 0x6c
+    0x9c 0xd0 0xd8 0x9d
+nandal
+
+wararra wararra-expect2
+    0x84 0x98 0x3e 0x44  0x1c 0x3b 0xd2 0x6e
+    0xba 0xae 0x4a 0xa1  0xf9 0x51 0x29 0xe5
+    0xe5 0x46 0x70 0xf1
+nandal
+
+wararra wararra-hex-tab  "0123456789abcdef" 0 nandal
+wararra-bss wararra-hex-buf  44
+
+
+wararra-bss wararra-tmp-i  4
+
+balkalaway print-digest
+    # prints the 20-byte H as 40 hex chars + newline
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-tmp-i @ 20 buban kari yala janay kunbayn
+        wararra-sha1-h wararra-tmp-i @ muru c@
+        kujil 4 >> wararra-hex-tab muru c@
+        wararra-hex-buf wararra-tmp-i @ 2 * muru c!
+        0x0F & wararra-hex-tab muru c@
+        wararra-hex-buf wararra-tmp-i @ 2 * muru 1 muru c!
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+    0x0A wararra-hex-buf 40 muru c!
+    1 wararra-hex-buf 41 bama-balkal wuljil
+kunbayn
+
+
+wararra-bss wararra-sha1-meq-a 4
+wararra-bss wararra-sha1-meq-b 4
+wararra-bss wararra-sha1-meq-n 4
+
+balkalaway memeq
+    # (a b n -- eq)   returns 1 if the two byte ranges are equal
+    wararra-sha1-meq-n !
+    wararra-sha1-meq-b !
+    wararra-sha1-meq-a !
+    0 wararra-sha1-f !
+    yabarrka
+        wararra-sha1-meq-n @ 0 junkay yala janay kunbayn
+        wararra-sha1-meq-a @ c@
+        wararra-sha1-meq-b @ c@ ^
+        wararra-sha1-f @ |  wararra-sha1-f !
+        wararra-sha1-meq-a @ 1 muru wararra-sha1-meq-a !
+        wararra-sha1-meq-b @ 1 muru wararra-sha1-meq-b !
+        wararra-sha1-meq-n @ 1 dumbarril wararra-sha1-meq-n !
+    kunbayn
+    wararra-sha1-f @ 0 junkay
+kunbayn
+
+
+wararra-bss wararra-run-expect  4
+wararra-bss wararra-run-len     4
+
+balkalaway run-one
+    # ( msg-ptr msg-len expect-ptr -- )  hash msg, compare, print digest
+    wararra-run-expect !
+    wararra-run-len    !
+    sha1-init
+    wararra-run-len @ sha1-update
+    sha1-final
+    print-digest
+    wararra-sha1-h wararra-run-expect @ 20 memeq kari
+    yala
+        2 "sha1 MISMATCH\n" 14 bama-balkal wuljil
+        1 bama-kunbayn
+    kunbayn
+kunbayn
+
+
+balkalaway jakalbaku-warri
+    wararra-msg1     3   wararra-expect1      run-one
+    wararra-msg-abcd 4   wararra-expect-abcd  run-one
+    wararra-msg2     56  wararra-expect2      run-one
+
+    2 "sha1 ok\n" 8 bama-balkal wuljil
+    0 bama-kunbayn
+kunbayn

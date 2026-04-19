@@ -1,0 +1,232 @@
+# bayan-bana.kuku  --  static HTTP file server in Kuku.
+#
+#   ./kuku-bama/ngunnga --bama /tmp/bayan-bana examples/bayan-bana.kuku
+#   /tmp/bayan-bana                 # listens on 0.0.0.0:9418
+#
+# bayan = house, bana = stream.  Serves the contents of /srv/www for any
+# HTTP GET.  Knows nothing about Content-Type, cookies, range requests,
+# or HTTP/1.1 keep-alive; if you ask for a file that exists, it writes
+# its bytes and closes the connection.
+#
+# The intended target of the Kuku git client is
+# /srv/www/kuku-hello.git — a bare repo with `git update-server-info`
+# already run, so /info/refs and objects/<ab>/<cdef...> exist as plain
+# files to GET.
+
+
+# ============================================================================
+# sockaddr for 0.0.0.0:9418 — port 9418 in network byte order = 0x24 0xCA
+# ============================================================================
+
+wararra wararra-sockaddr
+    0x02 0x00                          # AF_INET
+    0x24 0xCA                          # port 9418
+    0x00 0x00 0x00 0x00                # INADDR_ANY
+    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-args-socket
+    0x02 0x00 0x00 0x00
+    0x01 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00
+nandal
+
+wararra wararra-one  0x01 0x00 0x00 0x00  nandal
+
+wararra-bss wararra-args-sso       20
+wararra-bss wararra-args-bind      12
+wararra-bss wararra-args-listen     8
+wararra-bss wararra-args-accept    12
+
+wararra-bss wararra-serv-fd     4
+wararra-bss wararra-conn-fd     4
+wararra-bss wararra-file-fd     4
+wararra-bss wararra-req      4096
+wararra-bss wararra-req-len     4
+wararra-bss wararra-path     1024
+wararra-bss wararra-path-len    4
+wararra-bss wararra-parse-ok    4
+wararra-bss wararra-buf      8192
+wararra-bss wararra-n           4
+wararra-bss wararra-tmp-i       4
+
+
+wararra wararra-docroot  "/srv/www" 0 nandal
+
+wararra wararra-resp-200  "HTTP/1.0 200 OK\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n" 0 nandal
+wararra wararra-resp-404  "HTTP/1.0 404 Not Found\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nngunnga kari\n" 0 nandal
+wararra wararra-resp-400  "HTTP/1.0 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nkuku-request kari\n" 0 nandal
+
+wararra wararra-log-listen  "bayan-bana: 0.0.0.0:9418  root=/srv/www\n" 0 nandal
+
+
+# ============================================================================
+# Helpers
+# ============================================================================
+
+balkalaway kuku-dukul
+    # (ptr -- len)
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+balkalaway kuku-balkal
+    # (fd ptr --)
+    kujil kuku-dukul bama-balkal wuljil
+kunbayn
+
+balkalaway conn-send
+    # (ptr --)
+    wararra-conn-fd @ wundil kuku-balkal
+kunbayn
+
+
+# ============================================================================
+# Parse the request line.  Fills wararra-path with docroot + request path,
+# null-terminated.  Returns 1 on success, 0 on malformed request.
+#
+# Accepts:    GET /foo/bar HTTP/1.0\r\n...
+# Rejects:    anything with ".." in the path
+# ============================================================================
+
+balkalaway parse-request
+    # ( -- ok )   Kuku has no early return; we run the body inside a once-
+    # through yabarrka loop whose every failure path uses `janay` to bail.
+    0 wararra-parse-ok !
+    yabarrka
+        wararra-req-len @ 16 buban yala janay kunbayn
+
+        # first 4 bytes must be "GET "
+        wararra-req        c@ 0x47 junkay kari yala janay kunbayn
+        wararra-req 1 muru c@ 0x45 junkay kari yala janay kunbayn
+        wararra-req 2 muru c@ 0x54 junkay kari yala janay kunbayn
+        wararra-req 3 muru c@ 0x20 junkay kari yala janay kunbayn
+
+        # copy docroot into wararra-path
+        0 wararra-path-len !
+        0 wararra-tmp-i !
+        yabarrka
+            wararra-docroot wararra-tmp-i @ muru c@
+            kujil 0 junkay yala wuljil janay kunbayn
+            wararra-path wararra-path-len @ muru c!
+            wararra-path-len @ 1 muru wararra-path-len !
+            wararra-tmp-i @ 1 muru wararra-tmp-i !
+        kunbayn
+
+        # append request path from wararra-req+4 until space / CR / LF / NUL
+        4 wararra-tmp-i !
+        yabarrka
+            wararra-tmp-i @ wararra-req-len @ buban kari yala janay kunbayn
+
+            wararra-req wararra-tmp-i @ muru c@
+            kujil 0x20 junkay yala wuljil janay kunbayn
+            kujil 0x0D junkay yala wuljil janay kunbayn
+            kujil 0x0A junkay yala wuljil janay kunbayn
+            kujil 0    junkay yala wuljil janay kunbayn
+
+            wararra-path wararra-path-len @ muru c!
+            wararra-path-len @ 1 muru wararra-path-len !
+            wararra-tmp-i @ 1 muru wararra-tmp-i !
+        kunbayn
+
+        # cap path at 1000 bytes
+        wararra-path-len @ 1000 jirray yala janay kunbayn
+
+        0 wararra-path wararra-path-len @ muru c!
+        1 wararra-parse-ok !
+        janay
+    kunbayn
+    wararra-parse-ok @
+kunbayn
+
+
+# ============================================================================
+# Serve the file at wararra-path.  If it opens, stream 200 + contents.
+# Otherwise 404.
+# ============================================================================
+
+balkalaway serve-file
+    wararra-path 0 bama-ngunnga wararra-file-fd !
+    wararra-file-fd @ 0 jirray kari
+    yala
+        wararra-resp-404 conn-send
+        yinya
+        wararra-resp-200 conn-send
+        yabarrka
+            wararra-file-fd @ wararra-buf 8192 bama-babaji
+            kujil 1 buban yala wuljil janay kunbayn
+            wararra-n !
+            wararra-conn-fd @ wararra-buf wararra-n @ bama-balkal wuljil
+        kunbayn
+        wararra-file-fd @ bama-nandal wuljil
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Main
+# ============================================================================
+
+balkalaway jakalbaku-warri
+
+    wararra-args-socket 1 bama-wari
+    kujil 0 buban yala 1 bama-kunbayn kunbayn
+    wararra-serv-fd !
+
+    wararra-serv-fd @ wararra-args-sso                   !
+    1                 wararra-args-sso  4 muru           !
+    2                 wararra-args-sso  8 muru           !
+    wararra-one       wararra-args-sso 12 muru           !
+    4                 wararra-args-sso 16 muru           !
+    wararra-args-sso 14 bama-wari  wuljil
+
+    wararra-serv-fd   @ wararra-args-bind                !
+    wararra-sockaddr    wararra-args-bind  4 muru        !
+    16                  wararra-args-bind  8 muru        !
+    wararra-args-bind 2 bama-wari
+    kujil 0 buban yala 2 bama-kunbayn kunbayn
+    wuljil
+
+    wararra-serv-fd @  wararra-args-listen               !
+    16                 wararra-args-listen  4 muru       !
+    wararra-args-listen 4 bama-wari
+    kujil 0 buban yala 3 bama-kunbayn kunbayn
+    wuljil
+
+    2 wararra-log-listen kuku-balkal
+
+    yabarrka
+        wararra-serv-fd @  wararra-args-accept           !
+        0                  wararra-args-accept  4 muru   !
+        0                  wararra-args-accept  8 muru   !
+        wararra-args-accept 5 bama-wari
+        kujil 0 buban
+        yala
+            wuljil
+            yinya
+            wararra-conn-fd !
+
+            wararra-conn-fd @ wararra-req 4096 bama-babaji
+            kujil 1 buban
+            yala
+                wuljil
+                yinya
+                wararra-req-len !
+                parse-request
+                yala
+                    serve-file
+                    yinya
+                    wararra-resp-400 conn-send
+                kunbayn
+            kunbayn
+
+            wararra-conn-fd @ bama-nandal wuljil
+        kunbayn
+    kunbayn
+
+    0 bama-kunbayn
+kunbayn
