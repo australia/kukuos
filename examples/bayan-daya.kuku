@@ -1,0 +1,196 @@
+# bayan-daya.kuku  --  a tiny HTTP server in Kuku.
+#
+#   ./kuku-bama/ngunnga --bama /tmp/bayan-daya examples/bayan-daya.kuku
+#   /tmp/bayan-daya     # listens on 0.0.0.0:8080
+#
+# bayan = "house", daya = "give" — the house gives.
+#
+# Uses the Linux i386 socketcall(102) interface via bama-wari.  Sub-calls:
+#   1 socket   2 bind   4 listen   5 accept   13 shutdown   14 setsockopt.
+
+
+# ============================================================================
+# sockaddr_in for 0.0.0.0:8080.  struct layout (16 bytes, little-endian host
+# byte order except port/addr which are network byte order):
+#   +0  sin_family (u16) = AF_INET = 2
+#   +2  sin_port   (u16, big-endian) = 0x1F90 = 8080
+#   +4  sin_addr   (u32, big-endian) = 0 (INADDR_ANY)
+#   +8  sin_zero   (8 bytes padding)
+# ============================================================================
+
+wararra wararra-sockaddr
+    0x02 0x00                          # AF_INET
+    0x00 0x50                          # port 80 in network byte order
+    0x00 0x00 0x00 0x00                # INADDR_ANY
+    0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+nandal
+
+
+# socket(AF_INET=2, SOCK_STREAM=1, protocol=0)
+wararra wararra-args-socket
+    0x02 0x00 0x00 0x00
+    0x01 0x00 0x00 0x00
+    0x00 0x00 0x00 0x00
+nandal
+
+# setsockopt args: (fd, SOL_SOCKET=1, SO_REUSEADDR=2, &one, 4)
+wararra wararra-one  0x01 0x00 0x00 0x00  nandal
+
+wararra-bss wararra-args-sso       20    # (fd, 1, 2, &one, 4)
+wararra-bss wararra-args-bind      12    # (fd, &sockaddr, 16)
+wararra-bss wararra-args-listen     8    # (fd, backlog)
+wararra-bss wararra-args-accept    12    # (fd, 0, 0)
+
+
+# ============================================================================
+# Server state + request buffer
+# ============================================================================
+
+wararra-bss wararra-serv-fd     4
+wararra-bss wararra-conn-fd     4
+wararra-bss wararra-req         4096
+wararra-bss wararra-tmp-i       4
+
+
+# ============================================================================
+# HTTP/1.0 response, null-terminated so kuku-dukul (strlen) can measure it.
+# HTTP/1.0 + "Connection: close" means EOF-delimited body — no Content-Length
+# needed.
+# ============================================================================
+
+wararra wararra-response
+    "HTTP/1.0 200 OK\r\n"
+    "Content-Type: text/html; charset=utf-8\r\n"
+    "Connection: close\r\n"
+    "Server: bayan-daya/kuku\r\n"
+    "\r\n"
+    "<!doctype html>\n"
+    "<meta charset=\"utf-8\">\n"
+    "<title>kuku</title>\n"
+    "<style>\n"
+    "  body { font: 16px/1.5 ui-monospace, monospace; max-width: 40em;\n"
+    "         margin: 4rem auto; padding: 0 1rem; color: #222; }\n"
+    "  code { background: #f1f1f1; padding: 0 .25em; border-radius: 3px; }\n"
+    "  a { color: #04a; }\n"
+    "</style>\n"
+    "\n"
+    "<h1>kaday, bama.</h1>\n"
+    "\n"
+    "<p>This page is served by an HTTP server written in Kuku, a stack\n"
+    "language whose keywords are drawn from Kuku Yalanji. The server\n"
+    "source is <code>examples/bayan-daya.kuku</code>; it uses a single new\n"
+    "compiler primitive, <code>bama-wari</code>, that wraps the Linux i386\n"
+    "<code>socketcall(2)</code> syscall. The full pipeline is:\n"
+    "<code>socket</code> &rarr; <code>setsockopt(SO_REUSEADDR)</code> &rarr;\n"
+    "<code>bind</code> &rarr; <code>listen</code> &rarr; loop over\n"
+    "<code>accept</code> / <code>read</code> / <code>write</code> /\n"
+    "<code>close</code>. The response you are reading right now is a\n"
+    "null-terminated <code>wararra</code> declaration the server measures\n"
+    "with <code>kuku-dukul</code> and hands to <code>bama-balkal</code>\n"
+    "(the <code>write(2)</code> primitive).</p>\n"
+    "\n"
+    "<p><a href=\"https://github.com/australia/kukuos\">source</a> &middot;\n"
+    "<a href=\"https://huggingface.co/ajaxdavis/kuku-dambun\">GPT trained\n"
+    "in the same language</a></p>\n"
+    0
+nandal
+
+wararra wararra-err-socket    "bama-wari socket kari\n"    0 nandal
+wararra wararra-err-bind      "bama-wari bind kari\n"      0 nandal
+wararra wararra-err-listen    "bama-wari listen kari\n"    0 nandal
+wararra wararra-log-listen    "bayan-daya: 0.0.0.0:80\n" 0 nandal
+
+
+# ============================================================================
+# strlen helper
+# ============================================================================
+
+balkalaway kuku-dukul
+    # (ptr -- len)
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+balkalaway kuku-balkal
+    # (fd ptr --)   write null-terminated string
+    kujil kuku-dukul bama-balkal wuljil
+kunbayn
+
+
+# ============================================================================
+# Main
+# ============================================================================
+
+balkalaway jakalbaku-warri
+
+    # 1) sock = socket(AF_INET, SOCK_STREAM, 0)
+    wararra-args-socket 1 bama-wari
+    kujil 0 buban
+    yala
+        2 wararra-err-socket kuku-balkal
+        1 bama-kunbayn
+    kunbayn
+    wararra-serv-fd !
+
+    # 2) setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, 4) — sub-call 14
+    wararra-serv-fd @ wararra-args-sso                   !
+    1                 wararra-args-sso  4 muru           !
+    2                 wararra-args-sso  8 muru           !
+    wararra-one       wararra-args-sso 12 muru           !
+    4                 wararra-args-sso 16 muru           !
+    wararra-args-sso 14 bama-wari  wuljil
+
+    # 3) bind(sock, &sockaddr, 16) — sub-call 2
+    wararra-serv-fd   @ wararra-args-bind                !
+    wararra-sockaddr    wararra-args-bind  4 muru        !
+    16                  wararra-args-bind  8 muru        !
+    wararra-args-bind 2 bama-wari
+    kujil 0 buban
+    yala
+        2 wararra-err-bind kuku-balkal
+        2 bama-kunbayn
+    kunbayn
+    wuljil
+
+    # 4) listen(sock, 16) — sub-call 4
+    wararra-serv-fd @  wararra-args-listen               !
+    16                 wararra-args-listen  4 muru       !
+    wararra-args-listen 4 bama-wari
+    kujil 0 buban
+    yala
+        2 wararra-err-listen kuku-balkal
+        3 bama-kunbayn
+    kunbayn
+    wuljil
+
+    2 wararra-log-listen kuku-balkal
+
+    # 5) accept / read / write / close loop
+    yabarrka
+        wararra-serv-fd @  wararra-args-accept           !
+        0                  wararra-args-accept  4 muru   !
+        0                  wararra-args-accept  8 muru   !
+        wararra-args-accept 5 bama-wari
+        kujil 0 buban
+        yala
+            wuljil                                      # accept error: skip
+            yinya
+            wararra-conn-fd !
+
+            # drain up to 4096 bytes of request and ignore it
+            wararra-conn-fd @ wararra-req 4096 bama-babaji wuljil
+
+            # write the response
+            wararra-conn-fd @ wararra-response kuku-balkal
+
+            # close the client
+            wararra-conn-fd @ bama-nandal wuljil
+        kunbayn
+    kunbayn
+
+    0 bama-kunbayn
+kunbayn
