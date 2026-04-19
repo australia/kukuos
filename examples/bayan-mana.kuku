@@ -1,0 +1,266 @@
+# bayan-mana.kuku  --  HTTP GET client in Kuku.
+#
+#   ./kuku-bama/ngunnga --bama /tmp/bayan-mana examples/bayan-mana.kuku
+#   /tmp/bayan-mana 24.199.97.226 80 /           # writes whole response to stdout
+#
+# bayan = house, mana = grab / take.  Grab from a server.
+#
+# HTTP/1.0 only.  Single GET.  No HTTPS (no TLS stack).  No DNS (pass a
+# dotted-quad IP).  No Host header (not required by HTTP/1.0, and our
+# bayan-daya doesn't care).  Writes the whole response — headers and all —
+# to stdout.
+#
+# This is rung 1 of the git-clone stack.  Prerequisites for clone still
+# include: URL parsing, DNS, SHA-1, zlib INFLATE, git object parser,
+# dumb-HTTP clone walker.  TLS (and therefore github.com) is months of
+# separate work.
+
+
+# ============================================================================
+# Scratch state
+# ============================================================================
+
+wararra-bss wararra-sockaddr       16    # struct sockaddr_in, filled at runtime
+wararra-bss wararra-args-socket    12    # (AF_INET, SOCK_STREAM, 0)
+wararra-bss wararra-args-connect   12    # (fd, &sockaddr, 16)
+wararra-bss wararra-fd              4
+wararra-bss wararra-req          1024
+wararra-bss wararra-req-jina        4    # length of assembled request
+wararra-bss wararra-buf          4096
+wararra-bss wararra-n               4    # last read count
+wararra-bss wararra-tmp-i           4
+wararra-bss wararra-tmp-j           4
+wararra-bss wararra-tmp-k           4
+wararra-bss wararra-tmp-ptr         4
+wararra-bss wararra-tmp-val         4
+wararra-bss wararra-port            4
+
+
+wararra wararra-req-head   "GET "            0 nandal
+wararra wararra-req-tail   " HTTP/1.0\r\nConnection: close\r\n\r\n" 0 nandal
+
+wararra wararra-err-args     "warri: bayan-mana IP PORT PATH\n"         0 nandal
+wararra wararra-err-ip       "bayan-mana: IP kuku yanji\n"              0 nandal
+wararra wararra-err-socket   "bayan-mana: socket kari\n"                0 nandal
+wararra wararra-err-connect  "bayan-mana: connect kari\n"               0 nandal
+
+
+# ============================================================================
+# String helpers
+# ============================================================================
+
+balkalaway kuku-dukul
+    # (ptr -- len)
+    kujil
+    yabarrka
+        kujil c@ 0 junkay yala janay kunbayn
+        1 muru
+    kunbayn
+    wundil dumbarril
+kunbayn
+
+balkalaway birru-kuku
+    # (ptr --)   write null-terminated string to stderr then exit 1
+    wararra-tmp-ptr !
+    2 wararra-tmp-ptr @ wararra-tmp-ptr @ kuku-dukul bama-balkal wuljil
+    1 bama-kunbayn
+kunbayn
+
+
+# ============================================================================
+# Parse a decimal integer from a null-terminated string.  Returns the
+# integer on the data stack.  No error reporting; non-digits end parsing.
+# ============================================================================
+
+balkalaway parse-decimal
+    # (ptr -- n)
+    wararra-tmp-ptr !
+    0 wararra-tmp-val !
+    yabarrka
+        wararra-tmp-ptr @ c@
+        kujil 0x30 buban
+        yala wuljil janay kunbayn
+        kujil 0x39 jirray
+        yala wuljil janay kunbayn
+
+        0x30 dumbarril
+        wararra-tmp-val @ 10 * muru
+        wararra-tmp-val !
+        wararra-tmp-ptr @ 1 muru wararra-tmp-ptr !
+    kunbayn
+    wararra-tmp-val @
+kunbayn
+
+
+# ============================================================================
+# Parse a dotted-quad IP into 4 bytes at wararra-sockaddr+4 (network order).
+# Exits with "IP kuku yanji" on malformed input.
+# ============================================================================
+
+balkalaway parse-ip
+    # (ptr --)   writes bytes into wararra-sockaddr offsets 4..7
+    wararra-tmp-ptr !
+
+    0 wararra-tmp-j !                    # octet index 0..3
+    yabarrka
+        wararra-tmp-j @ 4 buban kari yala janay kunbayn
+
+        0 wararra-tmp-val !
+        0 wararra-tmp-k !                # digits consumed in this octet
+        yabarrka
+            wararra-tmp-ptr @ c@
+            kujil 0x30 buban
+            yala wuljil janay kunbayn
+            kujil 0x39 jirray
+            yala wuljil janay kunbayn
+
+            0x30 dumbarril
+            wararra-tmp-val @ 10 * muru
+            wararra-tmp-val !
+            wararra-tmp-ptr @ 1 muru wararra-tmp-ptr !
+            wararra-tmp-k @ 1 muru wararra-tmp-k !
+        kunbayn
+
+        wararra-tmp-k @ 0 junkay
+        yala wararra-err-ip birru-kuku kunbayn
+        wararra-tmp-val @ 0xFF jirray
+        yala wararra-err-ip birru-kuku kunbayn
+
+        # store byte at sockaddr + 4 + j
+        wararra-tmp-val @ 0xFF &
+        wararra-sockaddr 4 muru wararra-tmp-j @ muru c!
+
+        wararra-tmp-j @ 3 buban
+        yala
+            # consume '.'
+            wararra-tmp-ptr @ c@ 0x2E junkay kari
+            yala wararra-err-ip birru-kuku kunbayn
+            wararra-tmp-ptr @ 1 muru wararra-tmp-ptr !
+        kunbayn
+
+        wararra-tmp-j @ 1 muru wararra-tmp-j !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Fill wararra-sockaddr from IP string and integer port.
+# ============================================================================
+
+balkalaway build-sockaddr
+    # (ip-ptr port --)
+    wararra-port !
+
+    # sin_family = AF_INET = 2
+    0x02 wararra-sockaddr              c!
+    0x00 wararra-sockaddr  1 muru      c!
+
+    # sin_port in network byte order
+    wararra-port @  8 >>  0xFF &   wararra-sockaddr  2 muru  c!
+    wararra-port @        0xFF &   wararra-sockaddr  3 muru  c!
+
+    # sin_addr = parse-ip writes 4 bytes at sockaddr+4..7
+    parse-ip
+
+    # sin_zero: 8 bytes already zero from BSS
+kunbayn
+
+
+# ============================================================================
+# Build the HTTP request.  "GET <path> HTTP/1.0\r\nConnection: close\r\n\r\n"
+# ============================================================================
+
+balkalaway build-request
+    # (path --)
+    wararra-tmp-ptr !
+
+    0 wararra-req-jina !
+
+    # copy wararra-req-head ("GET ")
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-req-head wararra-tmp-i @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wararra-req wararra-req-jina @ muru c!
+        wararra-req-jina @ 1 muru wararra-req-jina !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+
+    # copy path
+    yabarrka
+        wararra-tmp-ptr @ c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wararra-req wararra-req-jina @ muru c!
+        wararra-req-jina @ 1 muru wararra-req-jina !
+        wararra-tmp-ptr @ 1 muru wararra-tmp-ptr !
+    kunbayn
+
+    # copy wararra-req-tail (" HTTP/1.0\r\nConnection: close\r\n\r\n")
+    0 wararra-tmp-i !
+    yabarrka
+        wararra-req-tail wararra-tmp-i @ muru c@
+        kujil 0 junkay yala wuljil janay kunbayn
+        wararra-req wararra-req-jina @ muru c!
+        wararra-req-jina @ 1 muru wararra-req-jina !
+        wararra-tmp-i @ 1 muru wararra-tmp-i !
+    kunbayn
+kunbayn
+
+
+# ============================================================================
+# Main
+# ============================================================================
+
+balkalaway jakalbaku-warri
+    bama-wangkanil 4 junkay kari
+    yala wararra-err-args birru-kuku kunbayn
+
+    # socket args
+    0x02 wararra-args-socket                c!
+    0x00 wararra-args-socket  1 muru        c!
+    0x00 wararra-args-socket  2 muru        c!
+    0x00 wararra-args-socket  3 muru        c!
+    0x01 wararra-args-socket  4 muru        c!
+    0x00 wararra-args-socket  5 muru        c!
+    0x00 wararra-args-socket  6 muru        c!
+    0x00 wararra-args-socket  7 muru        c!
+    0x00 wararra-args-socket  8 muru        c!
+    0x00 wararra-args-socket  9 muru        c!
+    0x00 wararra-args-socket 10 muru        c!
+    0x00 wararra-args-socket 11 muru        c!
+
+    # fill sockaddr from argv[1] (IP) and argv[2] (port)
+    2 4 * bama-wararra muru @ parse-decimal
+    1 4 * bama-wararra muru @ wundil build-sockaddr
+
+    # socket()
+    wararra-args-socket 1 bama-wari
+    kujil 0 buban
+    yala wararra-err-socket birru-kuku kunbayn
+    wararra-fd !
+
+    # connect args
+    wararra-fd @     wararra-args-connect               !
+    wararra-sockaddr wararra-args-connect  4 muru       !
+    16               wararra-args-connect  8 muru       !
+    wararra-args-connect 3 bama-wari
+    kujil 0 buban
+    yala wararra-err-connect birru-kuku kunbayn
+    wuljil
+
+    # build + send request
+    3 4 * bama-wararra muru @ build-request
+    wararra-fd @ wararra-req wararra-req-jina @ bama-balkal wuljil
+
+    # read response, write to stdout, until EOF
+    yabarrka
+        wararra-fd @ wararra-buf 4096 bama-babaji
+        kujil 1 buban
+        yala wuljil janay kunbayn
+        wararra-n !
+        1 wararra-buf wararra-n @ bama-balkal wuljil
+    kunbayn
+
+    wararra-fd @ bama-nandal wuljil
+    0 bama-kunbayn
+kunbayn
